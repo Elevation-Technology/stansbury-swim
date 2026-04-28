@@ -1,58 +1,35 @@
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { Storage } from '@google-cloud/storage'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { v4 as uuidv4 } from 'uuid'
 import 'multer'
-import * as fs from 'fs'
-import * as path from 'path'
+import { ConfigEnum } from '../shared/config.enum'
+
+const BUCKET_NAME = 'stansburyswim-public'
 
 @Injectable()
 export class FileService {
-  private readonly storage: Storage
-  private readonly bucketName: string
+  private readonly supabase: SupabaseClient
 
   constructor(private readonly configService: ConfigService) {
-    this.storage = new Storage()
-    this.bucketName = this.configService.get<string>('GCP_STORAGE_BUCKET') || 'stansburyswim-public'
+    const url = this.configService.getOrThrow<string>(ConfigEnum.SupabaseUrl)
+    const serviceRoleKey = this.configService.getOrThrow<string>(ConfigEnum.SupabaseServiceRoleKey)
+    this.supabase = createClient(url, serviceRoleKey)
   }
 
   async uploadFile(file: Express.Multer.File, userId: string): Promise<string> {
     const fileExtension = file.originalname.split('.').pop()
     const fileName = `${userId}/${uuidv4()}.${fileExtension}`
-    const tempFilePath = path.join('/tmp', `${uuidv4()}.${fileExtension}`)
 
-    const bucket = this.storage.bucket(this.bucketName)
-    const blob = bucket.file(fileName)
-
-    // Step 1: Save to temp file
-    await fs.promises.writeFile(tempFilePath, file.buffer)
-
-    // Step 2: Upload to GCS from file
-    await new Promise<void>((resolve, reject) => {
-      const localReadStream = fs.createReadStream(tempFilePath)
-      const gcsWriteStream = blob.createWriteStream({
-        resumable: false,
-        validation: 'crc32c',
-        metadata: {
-          contentType: file.mimetype,
-        },
-      })
-
-      localReadStream
-        .pipe(gcsWriteStream)
-        .on('error', err => {
-          console.error('Upload error:', err)
-          reject(err)
-        })
-        .on('finish', () => {
-          resolve()
-        })
+    const { error } = await this.supabase.storage.from(BUCKET_NAME).upload(fileName, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false,
     })
+    if (error) {
+      throw error
+    }
 
-    // Step 3: Clean up temp file
-    await fs.promises.unlink(tempFilePath)
-
-    const publicUrl = `https://storage.googleapis.com/${this.bucketName}/${fileName}`
-    return publicUrl
+    const { data } = this.supabase.storage.from(BUCKET_NAME).getPublicUrl(fileName)
+    return data.publicUrl
   }
 }

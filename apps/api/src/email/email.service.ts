@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
 import { UserService } from '../user/user.service'
-import sgMail from '@sendgrid/mail'
+import { Resend } from 'resend'
 import { User } from 'user/user'
 import { ConfigEnum } from '../shared/config.enum'
 import { Student } from 'student/student'
@@ -105,25 +105,34 @@ export class EmailService {
     return this.sendMail(msg)
   }
 
-  private sendMail(options: sgMail.MailDataRequired) {
-    const key = this.configService.get(ConfigEnum.SendGridApiKey)
-    sgMail.setApiKey(key)
+  private async sendMail(options: {
+    to: string
+    from: string
+    subject: string
+    text?: string
+    html?: string
+  }) {
+    const key = this.configService.get(ConfigEnum.ResendApiKey)
+    const resend = new Resend(key)
 
-    const mailData = {
-      ...options,
-      bcc: 'info@stansburyswim.com',
+    try {
+      const { data, error } = await resend.emails.send({
+        from: options.from,
+        to: options.to,
+        bcc: 'info@stansburyswim.com',
+        subject: options.subject,
+        ...(options.html ? { html: options.html } : { text: options.text ?? '' }),
+      })
+
+      if (error) {
+        this.logger.error(`Failed to send email to ${options.to}`, error)
+        return
+      }
+
+      this.logger.log(`Email sent to ${options.to}`, { id: data?.id })
+    } catch (error: any) {
+      this.logger.error(`Failed to send email to ${options.to}`, error?.stack)
     }
-
-    sgMail
-      .send(mailData)
-      .then(response => {
-        this.logger.log(`Email sent to ${options.to}`, {
-          statusCode: response[0].statusCode,
-        })
-      })
-      .catch(error => {
-        this.logger.error(`Failed to send email to ${options.to}`, error.stack)
-      })
   }
 
   public async sendCancellationEmail(user: User, student: Student, schedule: Schedule): Promise<void> {

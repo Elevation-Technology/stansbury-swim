@@ -8,11 +8,12 @@ import { GoogleOAuthProvider } from '@react-oauth/google'
 
 interface ClientWrapperProps {
   children: React.ReactNode
+  googleClientId: string
 }
 
-export function ClientWrapper({ children }: ClientWrapperProps) {
+export function ClientWrapper({ children, googleClientId }: ClientWrapperProps) {
   return (
-    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''}>
+    <GoogleOAuthProvider clientId={googleClientId}>
       <UserProvider>
         <AdminProtectedPage>
           <AppProvider>

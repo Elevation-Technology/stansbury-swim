@@ -5,7 +5,15 @@ import { MeService } from '@/services/api/shared/meService'
 import { jwtDecode } from 'jwt-decode'
 import { redirect, usePathname } from 'next/navigation'
 
-const PUBLIC_PATHS = ['/', '/sign-in', '/register', '/forgot-password', '/reset-password', '/privacy-policy']
+const PUBLIC_PATHS = [
+  '/',
+  '/sign-in',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/privacy-policy',
+  '/terms-of-service',
+]
 
 interface Impersonator {
   id: string

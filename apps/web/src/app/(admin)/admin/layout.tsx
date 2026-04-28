@@ -26,7 +26,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
       </head>
       <body>
-        <ClientWrapper>
+        <ClientWrapper googleClientId={process.env.GOOGLE_CLIENT_ID || ''}>
           <SpeedInsights />
           <Analytics />
           <div className="min-h-full">

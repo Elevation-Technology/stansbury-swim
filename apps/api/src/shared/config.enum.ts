@@ -4,10 +4,12 @@ export enum ConfigEnum {
   JwtAccessTokenAudience = 'JWT_ACCESS_TOKEN_AUDIENCE',
   JwtVerificationTokenSecret = 'JWT_VERIFICATION_TOKEN_SECRET',
   JwtVerificationTokenExpirationTime = 'JWT_VERIFICATION_TOKEN_EXPIRATION_TIME',
-  SendGridApiKey = 'SENDGRID_API_KEY',
+  ResendApiKey = 'RESEND_API_KEY',
   EmailResetPasswordUrl = 'EMAIL_RESET_PASSWORD_URL',
   MongoUri = 'MONGO_URI',
   PaypalClientId = 'PAYPAL_CLIENT_ID',
   PaypalClientSecret = 'PAYPAL_CLIENT_SECRET',
   PaypalEnvironment = 'PAYPAL_ENVIRONMENT',
+  SupabaseUrl = 'SUPABASE_URL',
+  SupabaseServiceRoleKey = 'SUPABASE_SERVICE_ROLE_KEY',
 }

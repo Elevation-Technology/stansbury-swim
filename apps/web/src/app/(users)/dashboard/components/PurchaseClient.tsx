@@ -26,6 +26,7 @@ interface PurchaseClientProps {
   onWaitlist: boolean
   purchaseEnabled: boolean
   pools: PoolDto[]
+  paypalClientId: string
 }
 
 export default function PurchaseClient({
@@ -36,6 +37,7 @@ export default function PurchaseClient({
   onWaitlist: initialOnWaitlist,
   purchaseEnabled,
   pools,
+  paypalClientId,
 }: PurchaseClientProps) {
   const router = useRouter()
   const [selectedProductId, setSelectedProductId] = useState('')
@@ -406,7 +408,7 @@ export default function PurchaseClient({
                 </div>
                 <PayPalScriptProvider
                   options={{
-                    clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '',
+                    clientId: paypalClientId,
                     currency: 'USD',
                     intent: 'capture',
                     disableFunding: ['paylater'],

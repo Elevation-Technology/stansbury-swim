@@ -7,6 +7,7 @@ const navigation = {
     { name: 'Pricing', href: '/#pricing' },
     { name: 'Pools', href: '/#pools' },
     { name: 'Privacy Policy', href: '/privacy-policy' },
+    { name: 'Terms of Service', href: '/terms-of-service' },
   ],
 }
 

@@ -37,6 +37,7 @@ export default async function PurchasePage() {
       onWaitlist={!!waitlist}
       purchaseEnabled={purchaseEnabled}
       pools={pools}
+      paypalClientId={process.env.PAYPAL_CLIENT_ID || ''}
     />
   )
 }
