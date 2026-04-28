@@ -40,7 +40,8 @@ export const UserProvider = ({ children }: UserProviderProps) => {
   const [impersonator, setImpersonator] = useState<Impersonator | null>(null)
   const pathname = usePathname()
 
-  const isPublicPath = PUBLIC_PATHS.includes(pathname)
+  const normalizedPath = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
+  const isPublicPath = PUBLIC_PATHS.includes(normalizedPath)
 
   const fetchUserDetails = useCallback(async () => {
     try {
