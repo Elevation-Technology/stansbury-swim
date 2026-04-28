@@ -173,6 +173,17 @@ export default function RegisterForm() {
               {error}
             </div>
           )}
+          <p className="mt-4 text-xs text-gray-500 text-center">
+            By registering, you agree to our{' '}
+            <Link href="/terms-of-service" className="font-semibold text-indigo-600 hover:text-indigo-500">
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link href="/privacy-policy" className="font-semibold text-indigo-600 hover:text-indigo-500">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </div>
       </form>
 

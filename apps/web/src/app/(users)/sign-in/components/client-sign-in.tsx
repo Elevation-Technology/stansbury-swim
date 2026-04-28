@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { setUser } from '@/app/utils/api'
 import { useState } from 'react'
 import { GoogleAuthService } from '@/services/api/shared/googleAuthService'
+import { ApiError } from '@/api'
 
 export default function ClientSignIn() {
   const router = useRouter()
@@ -28,9 +29,13 @@ export default function ClientSignIn() {
               const data = await GoogleAuthService.authenticate(response.credential ?? '')
               setUser(data)
               router.push('/dashboard')
-            } catch (error) {
-              console.log('Google login failed', error)
-              setError(error instanceof Error ? error.message : 'An unknown error occurred')
+            } catch (err) {
+              console.log('Google login failed', err)
+              if (err instanceof ApiError) {
+                setError(err.body?.message || 'Google sign-in failed')
+              } else {
+                setError(err instanceof Error ? err.message : 'An unknown error occurred')
+              }
             }
           }}
           onError={() => {
@@ -38,6 +43,17 @@ export default function ClientSignIn() {
             setError('Login Failed')
           }}
         />
+        <p className="mt-4 text-xs text-gray-500">
+          By signing in, you agree to our{' '}
+          <Link href="/terms-of-service" className="font-semibold text-indigo-600 hover:text-indigo-500">
+            Terms of Service
+          </Link>{' '}
+          and{' '}
+          <Link href="/privacy-policy" className="font-semibold text-indigo-600 hover:text-indigo-500">
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </div>
       {error && <div className="mt-4 text-red-500">{error}</div>}
     </>

@@ -4,6 +4,7 @@ import { MeService } from '@/services/api/shared/meService'
 import { useUser } from '@contexts/user-context'
 import { CheckCircleIcon } from '@heroicons/react/20/solid'
 import Header from '../components/Header'
+import DeleteAccountSection from './DeleteAccountSection'
 
 export default function Profile() {
   const { user, refreshUser } = useUser()
@@ -392,6 +393,7 @@ export default function Profile() {
                   </div>
                 </div>
               )}
+              <DeleteAccountSection />
             </div>
           </div>
         </main>
