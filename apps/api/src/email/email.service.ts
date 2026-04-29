@@ -11,6 +11,11 @@ import { formatInTimeZone } from 'date-fns-tz'
 import { PoolService } from 'pool/pool.service'
 import { InstructorService } from 'instructor/instructor.service'
 
+const FROM_ADDRESS = 'no-reply@stansburyswim.com'
+const LOGO_URL = 'https://stansburyswim.com/images/logo.png'
+const SITE_URL = 'https://stansburyswim.com'
+const DASHBOARD_URL = 'https://stansburyswim.com/dashboard'
+
 @Injectable()
 export class EmailService {
   constructor(
@@ -43,14 +48,23 @@ export class EmailService {
 
     const url = `${this.configService.get(ConfigEnum.EmailResetPasswordUrl)}?token=${token}`
 
-    const text = `Hi, \nTo reset your password, click here: ${url}`
-    const msg = {
+    const html = this.renderEmailLayout(
+      'Reset your password',
+      `${this.renderHeading('Reset your password')}
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">Hi,</p>
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">We received a request to reset the password for your Stansbury Swim account. Click the button below to choose a new password.</p>
+      ${this.renderButton(url, 'Reset password')}
+      <p style="margin:24px 0 8px 0;font-size:13px;line-height:1.6;color:#6b7280;">If the button doesn't work, copy and paste this link into your browser:</p>
+      <p style="margin:0 0 24px 0;font-size:13px;line-height:1.6;word-break:break-all;"><a href="${url}" style="color:#428BCA;text-decoration:underline;">${url}</a></p>
+      <p style="margin:0;font-size:13px;line-height:1.6;color:#6b7280;">If you didn't request a password reset, you can safely ignore this email &mdash; your password won't be changed.</p>`,
+    )
+
+    return this.sendMail({
       to: email,
-      from: 'no-reply@stansburyswim.com',
+      from: FROM_ADDRESS,
       subject: 'Reset your password',
-      text: text,
-    }
-    return this.sendMail(msg)
+      html,
+    })
   }
 
   public async decodeConfirmationToken(token: string): Promise<string> {
@@ -72,137 +86,73 @@ export class EmailService {
   }
 
   public async sendWelcomeEmail(user: User): Promise<void> {
-    const msg = {
+    const html = this.renderEmailLayout(
+      'Welcome to Stansbury Swim',
+      `${this.renderHeading('Stansbury Swim Registration')}
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">Thanks for registering with Stansbury Swim! We can't wait to swim with you.</p>
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">Next, head to your dashboard to add students, purchase credits, reserve your lesson, and have fun!</p>
+      ${this.renderButton(DASHBOARD_URL, 'Go to your dashboard')}
+      ${this.renderSignoff()}
+      ${this.renderPoliciesList(true)}
+      ${this.renderSignoff()}`,
+    )
+
+    return this.sendMail({
       to: user.email,
-      from: 'no-reply@stansburyswim.com',
+      from: FROM_ADDRESS,
       subject: 'Welcome to Stansbury Swim',
-      html: `<html>
-<body>
-<p><strong>Stansbury Swim Registration</strong></p>
-<p>Thanks for registering with Stansbury Swim!  We can't wait to swim with you. </p>
-<p>Next, <a href='https://stansburyswim.com/dashboard'>add students</a>, <a href='https://stansburyswim.com/dashboard'>purchase credits</a>, reserve your <a href='http://stansburyswim.com/dashboard'>lesson</a> and have fun! </p>
-<p>See you soon! </br>The Stansbury Swim Team</p>
-<p> </p>
-<p>COVID-19 UPDATE:  With your help, we can keep the facilities clean and social distancing in check. Do not come to the facility if sick or have been exposed to anyone sick.  See our updated "what we are doing" and "what you can do" lists on our <a href='https://www.facebook.com/arnellaquatics/'>Stansbury Swim Facebook Page</a> and at the pools. We plan to operate May 18-July 31, unless the threat level returns to red.  Please note, however, the nature of our training program does not allow us social distance between instructor and student during the lesson. Even though, the CDC says there is no evidence of the virus spreading through pools, there is probably still some risk when they are in close contact above the water. You are welcome to to enter the pool with your child to avoid instructor-child contact. If you are uncomfortable with any of these risks, please call Sarah at 435-659-6307 and we will refund your purchase. </p>
-<p>Policies and Tips:</p>
-<ul>
-<li>Pool addresses:  103 Lakeview, Stansbury Park, 5446 Lanyard Lane, Stansbury Park, and 180 E Durfee St, Grantsville.  When you schedule, be sure to note the location as well as date/time/instructor.</li>
-<li>All lessons are private, with one-on-one instruction customized to the student's goals and skill level.</li>
-<li>Lessons start and end promptly.  We advise arriving at least 5 minutes early to be ready for the lesson.</li>
-<li>Please be considerate when parking.  Do not block driveways or mailboxes.</li>
-<li>All lesson credits MUST be used in the season purchased.  All unused lesson credits will be forfeited with no refund.  Seasons typically end July 31.</li>
-<li>Text "@stansswim1" to 81010 or visit remind.com/join/stansswim1 to receive text updates (including new schedule offerings and cancellations due to weather).</li>
-<li>24-hour cancellation notice is required.  There is no charge to reschedule any lesson, if done more that 24 hours ahead of time.  Within 24 hours of lesson time, there will be a full charge on all lessons.  You are welcome to send a replacement student if the scheduled student is unavailable.  </li>
-<li>Instructors are subject to change without notice.</li>
-<li>We strongly prefer reusable swim diapers over disposable and sunscreen lotion over aerosol.</li>
-<li>Recommended: Ages 3-5 20-40 Lessons, Ages 5+10-20 Lessons + Maintenance Program 1-3 times/week. </li>
-<li>Give your child lots of love and encouragement between lessons.  Recognize his/her bravery and achievements.  Take pictures and video during the lesson.  Children love to watch themselves and gain confidence as they do so.</li>
-</ul>
-<p>See you soon! </br>The Stansbury Swim Team</p>
-</body>
-</html>`,
-    }
-    return this.sendMail(msg)
-  }
-
-  private async sendMail(options: {
-    to: string
-    from: string
-    subject: string
-    text?: string
-    html?: string
-  }) {
-    const key = this.configService.get(ConfigEnum.ResendApiKey)
-    const resend = new Resend(key)
-
-    try {
-      const { data, error } = await resend.emails.send({
-        from: options.from,
-        to: options.to,
-        bcc: 'info@stansburyswim.com',
-        subject: options.subject,
-        ...(options.html ? { html: options.html } : { text: options.text ?? '' }),
-      })
-
-      if (error) {
-        this.logger.error(`Failed to send email to ${options.to}`, error)
-        return
-      }
-
-      this.logger.log(`Email sent to ${options.to}`, { id: data?.id })
-    } catch (error: any) {
-      this.logger.error(`Failed to send email to ${options.to}`, error?.stack)
-    }
+      html,
+    })
   }
 
   public async sendCancellationEmail(user: User, student: Student, schedule: Schedule): Promise<void> {
     const formattedDateTimeMdt = formatInTimeZone(schedule.startDateTime, 'America/Denver', 'MM/dd/yyyy hh:mm a')
-    const msg = {
-      to: user.email,
-      from: 'no-reply@stansburyswim.com',
-      subject: 'Lesson Cancellation Confirmation',
-      html: `<html>
-<body>
-<p><strong>Lesson Cancellation Confirmation</strong></p>
-<p>Your lesson scheduled for ${formattedDateTimeMdt} has been cancelled and your credit has been restored to your account.  Reserve your next lesson <a href='https://stansburyswim.com/dashboard'>here</a>.</p>
-<p>See you soon! </br>The Stansbury Swim Team</p>
 
-<p>Policies and Tips:</p>
-<ul>
-<li>Pool addresses:  103 Lakeview, Stansbury Park, 5446 Lanyard Lane, Stansbury Park, and 180 E Durfee St, Grantsville.  When you schedule, be sure to note the location as well as date/time/instructor.</li>
-<li>All lessons are private, with one-on-one instruction customized to the student's goals and skill level.</li>
-<li>Lessons start and end promptly.  We advise arriving at least 5 minutes early to be ready for the lesson.</li>
-<li>Please be considerate when parking.  Do not block driveways or mailboxes.</li>
-<li>All lesson credits MUST be used in the season purchased.  All unused lesson credits will be forfeited with no refund.  Seasons typically end July 31.</li>
-<li>Text "@stansswim1" to 81010 or visit remind.com/join/stansswim1 to receive text updates (including new schedule offerings and cancellations due to weather).</li>
-<li>24-hour cancellation notice is required.  There is no charge to reschedule any lesson, if done more that 24 hours ahead of time.  Within 24 hours of lesson time, there will be a full charge on all lessons.  You are welcome to send a replacement student if the scheduled student is unavailable.  </li>
-<li>Instructors are subject to change without notice.</li>
-<li>We strongly prefer reusable swim diapers over disposable and sunscreen lotion over aerosol.</li>
-<li>Recommended: Ages 3-5 20-40 Lessons, Ages 5+10-20 Lessons + Maintenance Program 1-3 times/week. </li>
-<li>Give your child lots of love and encouragement between lessons.  Recognize his/her bravery and achievements.  Take pictures and video during the lesson.  Children love to watch themselves and gain confidence as they do so.</li>
-</ul>
-<p>See you soon! </br>The Stansbury Swim Team</p>
-</body>
-</html>
-</html>`,
-    }
-    return this.sendMail(msg)
+    const html = this.renderEmailLayout(
+      'Lesson Cancellation Confirmation',
+      `${this.renderHeading('Lesson Cancellation Confirmation')}
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">Your lesson scheduled for <strong style="color:#142e55;">${formattedDateTimeMdt}</strong> has been cancelled and your credit has been restored to your account.</p>
+      ${this.renderButton(DASHBOARD_URL, 'Reserve your next lesson')}
+      ${this.renderSignoff()}
+      ${this.renderPoliciesList(true)}
+      ${this.renderSignoff()}`,
+    )
+
+    return this.sendMail({
+      to: user.email,
+      from: FROM_ADDRESS,
+      subject: 'Lesson Cancellation Confirmation',
+      html,
+    })
   }
 
   public async sendReservationEmail(user: User, student: Student, schedule: Schedule): Promise<void> {
-    // convert to MDT
     const formattedDateTimeMdt = formatInTimeZone(schedule.startDateTime, 'America/Denver', 'MM/dd/yyyy hh:mm a')
     const pool = await this.poolService.findOne(schedule.poolId)
     const instructor = await this.instructorService.findOne(schedule.instructorId)
-    const msg = {
+
+    const html = this.renderEmailLayout(
+      'Lesson Reservation Confirmation',
+      `${this.renderHeading('Splash! Your lesson is confirmed')}
+      <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:#374151;">${student.name}'s lesson reservation is confirmed. Please arrive at least 5 minutes prior to the lesson. You may cancel this lesson online up to 24 hours before lesson time with no penalty.</p>
+      ${this.renderInfoCard([
+        { label: 'When', value: formattedDateTimeMdt },
+        { label: 'Where', value: pool.name },
+        { label: 'Instructor', value: instructor.name },
+      ])}
+      <p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#374151;"><strong style="color:#142e55;">Pool entry:</strong> 103 Lakeview &mdash; enter pool area through the gate to the right of the garage. 180 Durfee &mdash; walk down driveway and enter pool area between the two garages. Text or call Sarah with any questions: <a href="tel:+14356596307" style="color:#428BCA;">435-659-6307</a>.</p>
+      <p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#374151;">We are unable to cancel, refund, or reschedule a lesson within 24 hours of lesson time. You are welcome to send a replacement student if the scheduled student is unavailable.</p>
+      ${this.renderSignoff()}
+      ${this.renderPoliciesList(true)}
+      ${this.renderSignoff()}`,
+    )
+
+    return this.sendMail({
       to: user.email,
-      from: 'no-reply@stansburyswim.com',
+      from: FROM_ADDRESS,
       subject: 'Lesson Reservation Confirmation',
-      html: `<p>Splash!  ${student.name}'s lesson reservation for ${formattedDateTimeMdt} at ${pool.name} with ${instructor.name} is confirmed.  Please arrive at least 5 minutes prior to the lesson.  You may cancel this lesson online up to 24 hours before lesson time with no penalty.</p>											
-103 Lakeview: Enter pool area through the gate to the right of the garage. 180 Durfee: Walk down driveway and enter pool area between the two garages. Text or call Sarah with any questions 435-659-6307.											
-We are unable to cancel, refund, or reschedule a lesson within 24 hours of lesson time. You are welcome to send a replacement student if the scheduled student is unavailable. 											
-											
-<p>Policies and Tips:</p>											
-<ul>											
-<li>Pool addresses:  103 Lakeview, Stansbury Park, 5446 Lanyard Lane, Stansbury Park, and 180 E Durfee St, Grantsville.  When you schedule, be sure to note the location as well as date/time/instructor.</li>											
-<li>All lessons are private, with one-on-one instruction customized to the student's goals and skill level.</li>											
-<li>Lessons start and end promptly.  We advise arriving at least 5 minutes early to be ready for the lesson.</li>											
-<li>Please be considerate when parking.  Do not block driveways or mailboxes.</li>											
-<li>All lesson credits MUST be used in the season purchased.  All unused lesson credits will be forfeited with no refund.  Seasons typically end July 31.</li>											
-<li>Text "@stansswim1" to 81010 or visit remind.com/join/stansswim1 to receive text updates (including new schedule offerings and cancellations due to weather).</li>											
-<li>24-hour cancellation notice is required.  There is no charge to reschedule any lesson, if done more that 24 hours ahead of time.  Within 24 hours of lesson time, there will be a full charge on all lessons.  You are welcome to send a replacement student if the scheduled student is unavailable.  </li>											
-<li>Instructors are subject to change without notice.</li>											
-<li>We strongly prefer reusable swim diapers over disposable and sunscreen lotion over aerosol.</li>											
-<li>Recommended: Ages 3-5 20-40 Lessons, Ages 5+10-20 Lessons + Maintenance Program 1-3 times/week. </li>											
-<li>Give your child lots of love and encouragement between lessons.  Recognize his/her bravery and achievements.  Take pictures and video during the lesson.  Children love to watch themselves and gain confidence as they do so.</li>											
-</ul>											
-<p>See you soon! </br>The Stansbury Swim Team</p>											
-</body>											
-</html>											
-</body>											
-</html>											`,
-    }
-    return this.sendMail(msg)
+      html,
+    })
   }
 
   public async sendScheduleReminderEmail(
@@ -228,40 +178,157 @@ We are unable to cancel, refund, or reschedule a lesson within 24 hours of lesso
       },
     )
 
-    const msg = {
+    const correctedCallout = corrected
+      ? `<div style="margin:0 0 24px 0;padding:12px 16px;background-color:#fff7ed;border-left:4px solid #f59e0b;border-radius:6px;">
+          <p style="margin:0;font-size:14px;line-height:1.6;color:#92400e;"><strong>Heads up:</strong> This is a corrected reminder for your lesson. Previous email contained the wrong time.</p>
+        </div>`
+      : ''
+
+    const poolDetailsBlock = pool.details
+      ? `<p style="margin:16px 0 0 0;font-size:14px;line-height:1.6;color:#374151;">${pool.details}</p>`
+      : ''
+
+    const html = this.renderEmailLayout(
+      corrected ? 'Lesson Reminder (Corrected)' : 'Lesson Reminder',
+      `${this.renderHeading(corrected ? 'Lesson Reminder (Corrected)' : 'Lesson Reminder')}
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">Hello ${user.firstName} ${user.lastName},</p>
+      ${correctedCallout}
+      <p style="margin:0 0 24px 0;font-size:15px;line-height:1.6;color:#374151;">This is a reminder that your lesson for <strong style="color:#142e55;">${student.name}</strong> is scheduled below. Please arrive at least 5 minutes prior to the lesson.</p>
+      ${this.renderInfoCard([
+        { label: 'When', value: formattedDateTimeMdt },
+        { label: 'Where', value: pool.name },
+        { label: 'Address', value: pool.address },
+        { label: 'Instructor', value: instructor.name },
+      ])}
+      ${poolDetailsBlock}
+      ${this.renderPoliciesList(false)}
+      <p style="margin:24px 0 0 0;font-size:15px;line-height:1.6;color:#374151;">We look forward to seeing you!<br>The Stansbury Swim Team</p>`,
+    )
+
+    return this.sendMail({
       to: user.email,
-      from: 'no-reply@stansburyswim.com',
+      from: FROM_ADDRESS,
       subject: corrected ? 'Lesson Reminder (Corrected)' : 'Lesson Reminder',
-      html: `<p>Hello ${user.firstName} ${user.lastName},</p>
-      ${corrected ? '<p>This is a corrected reminder for your lesson. Previous email contained the wrong time.</p>' : ''}
-      <p>This is a reminder that your lesson for ${student.name} is scheduled on ${formattedDateTimeMdt} at ${pool.name} with ${instructor.name}.</p>
-      <p>Please arrive at least 5 minutes prior to the lesson.</p>
+      html,
+    })
+  }
 
-      <p>Pool Details:</p>
-      <ul>
-        <li>Pool Address: ${pool.address}</li>
-      </ul>
-      <p>${pool.details}</p>
+  private async sendMail(options: { to: string; from: string; subject: string; text?: string; html?: string }) {
+    const key = this.configService.get(ConfigEnum.ResendApiKey)
+    const resend = new Resend(key)
 
-      									
-      <p>Policies and Tips:</p>											
-      <ul>											
-      <li>All lessons are private, with one-on-one instruction customized to the student's goals and skill level.</li>											
-      <li>Lessons start and end promptly.  We advise arriving at least 5 minutes early to be ready for the lesson.</li>											
-      <li>Please be considerate when parking.  Do not block driveways or mailboxes.</li>											
-      <li>All lesson credits MUST be used in the season purchased.  All unused lesson credits will be forfeited with no refund.  Seasons typically end July 31.</li>											
-      <li>Text "@stansswim1" to 81010 or visit remind.com/join/stansswim1 to receive text updates (including new schedule offerings and cancellations due to weather).</li>											
-      <li>24-hour cancellation notice is required.  There is no charge to reschedule any lesson, if done more that 24 hours ahead of time.  Within 24 hours of lesson time, there will be a full charge on all lessons.  You are welcome to send a replacement student if the scheduled student is unavailable.  </li>											
-      <li>Instructors are subject to change without notice.</li>											
-      <li>We strongly prefer reusable swim diapers over disposable and sunscreen lotion over aerosol.</li>											
-      <li>Recommended: Ages 3-5 20-40 Lessons, Ages 5+10-20 Lessons + Maintenance Program 1-3 times/week. </li>											
-      <li>Give your child lots of love and encouragement between lessons.  Recognize his/her bravery and achievements.  Take pictures and video during the lesson.  Children love to watch themselves and gain confidence as they do so.</li>											
-      </ul>											
+    try {
+      const { data, error } = await resend.emails.send({
+        from: options.from,
+        to: options.to,
+        bcc: 'info@stansburyswim.com',
+        subject: options.subject,
+        ...(options.html ? { html: options.html } : { text: options.text ?? '' }),
+      })
 
-      <p>We look forward to seeing you!</p>
-      <p>The Stansbury Swim Team</p>
-      `,
+      if (error) {
+        this.logger.error(`Failed to send email to ${options.to}`, error)
+        return
+      }
+
+      this.logger.log(`Email sent to ${options.to}`, { id: data?.id })
+    } catch (error: any) {
+      this.logger.error(`Failed to send email to ${options.to}`, error?.stack)
     }
-    return this.sendMail(msg)
+  }
+
+  private renderEmailLayout(title: string, contentHtml: string): string {
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f6f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#374151;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f6f9;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+          <tr>
+            <td align="center" style="background-color:#142e55;padding:32px 24px;">
+              <img src="${LOGO_URL}" alt="Stansbury Swim" width="120" style="display:block;border:0;outline:none;text-decoration:none;background-color:#ffffff;border-radius:8px;padding:12px;">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 32px;">
+              ${contentHtml}
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb;" align="center">
+              <p style="margin:0;font-size:12px;line-height:1.5;color:#9ca3af;">&copy; Stansbury Swim &middot; <a href="${SITE_URL}" style="color:#9ca3af;text-decoration:underline;">stansburyswim.com</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+  }
+
+  private renderHeading(text: string): string {
+    return `<h1 style="margin:0 0 20px 0;font-size:22px;line-height:1.3;color:#142e55;font-weight:600;">${text}</h1>`
+  }
+
+  private renderButton(href: string, label: string): string {
+    return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:24px auto;">
+      <tr>
+        <td align="center" style="border-radius:8px;background-color:#428BCA;">
+          <a href="${href}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">${label}</a>
+        </td>
+      </tr>
+    </table>`
+  }
+
+  private renderInfoCard(rows: { label: string; value: string }[]): string {
+    const rowsHtml = rows
+      .map(
+        r => `<tr>
+          <td style="padding:6px 16px 6px 0;font-size:14px;color:#6b7280;vertical-align:top;white-space:nowrap;">${r.label}</td>
+          <td style="padding:6px 0;font-size:14px;color:#142e55;font-weight:600;">${r.value}</td>
+        </tr>`,
+      )
+      .join('')
+    return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px 0;background-color:#f4f6f9;border-radius:8px;border-left:4px solid #428BCA;">
+      <tr>
+        <td style="padding:16px 20px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            ${rowsHtml}
+          </table>
+        </td>
+      </tr>
+    </table>`
+  }
+
+  private renderSignoff(): string {
+    return `<p style="margin:24px 0 0 0;font-size:15px;line-height:1.6;color:#374151;">See you soon!<br>The Stansbury Swim Team</p>`
+  }
+
+  private renderPoliciesList(includePoolAddresses: boolean): string {
+    const li = 'style="margin-bottom:8px;"'
+    const poolAddressesItem = includePoolAddresses
+      ? `<li ${li}>Pool addresses: 103 Lakeview, Stansbury Park, 5446 Lanyard Lane, Stansbury Park, and 180 E Durfee St, Grantsville. When you schedule, be sure to note the location as well as date/time/instructor.</li>`
+      : ''
+    return `<h2 style="margin:32px 0 12px 0;font-size:16px;line-height:1.3;color:#142e55;font-weight:600;">Policies and Tips</h2>
+    <ul style="margin:0 0 16px 0;padding:0 0 0 20px;font-size:14px;line-height:1.6;color:#374151;">
+      ${poolAddressesItem}
+      <li ${li}>All lessons are private, with one-on-one instruction customized to the student's goals and skill level.</li>
+      <li ${li}>Lessons start and end promptly. We advise arriving at least 5 minutes early to be ready for the lesson.</li>
+      <li ${li}>Please be considerate when parking. Do not block driveways or mailboxes.</li>
+      <li ${li}>All lesson credits MUST be used in the season purchased. All unused lesson credits will be forfeited with no refund. Seasons typically end July 31.</li>
+      <li ${li}>Text "@stansswim1" to 81010 or visit <a href="https://remind.com/join/stansswim1" style="color:#428BCA;">remind.com/join/stansswim1</a> to receive text updates (including new schedule offerings and cancellations due to weather).</li>
+      <li ${li}>24-hour cancellation notice is required. There is no charge to reschedule any lesson, if done more than 24 hours ahead of time. Within 24 hours of lesson time, there will be a full charge on all lessons. You are welcome to send a replacement student if the scheduled student is unavailable.</li>
+      <li ${li}>Instructors are subject to change without notice.</li>
+      <li ${li}>We strongly prefer reusable swim diapers over disposable and sunscreen lotion over aerosol.</li>
+      <li ${li}>Recommended: Ages 3-5 20-40 Lessons, Ages 5-10 20 Lessons + Maintenance Program 1-3 times/week.</li>
+      <li ${li}>Give your child lots of love and encouragement between lessons. Recognize his or her bravery and achievements. Take pictures and video during the lesson. Children love to watch themselves and gain confidence as they do so.</li>
+    </ul>`
   }
 }
