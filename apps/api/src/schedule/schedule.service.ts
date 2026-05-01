@@ -212,6 +212,7 @@ export class ScheduleService {
     const result = await this.model.find({
       lessonType: LessonTypesEnum.GROUP,
       status: ScheduleStatusEnum.ACTIVE,
+      startDateTime: { $gte: new Date() },
     })
 
     return result.map(mapper)

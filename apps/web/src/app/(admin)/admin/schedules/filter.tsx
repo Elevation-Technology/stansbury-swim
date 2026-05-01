@@ -53,7 +53,7 @@ export default function Filter({
       <div className="w-64">
         <Listbox value={selectedInstructor} onChange={onInstructorChange}>
           <div className="relative">
-            <Listbox.Button className="relative w-full cursor-default rounded-lg bg-white py-2 pl-3 pr-10 text-left shadow-md focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white/75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
+            <Listbox.Button className="relative w-full cursor-default rounded-lg bg-white py-2 pl-3 pr-10 text-left text-gray-900 shadow-md focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white/75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm dark:bg-zinc-800 dark:text-white">
               <span className="block truncate">
                 {selectedInstructor ? instructors.find(i => i.id === selectedInstructor)?.name : 'All Instructors'}
               </span>
@@ -67,12 +67,12 @@ export default function Filter({
               leaveFrom="opacity-100"
               leaveTo="opacity-0"
             >
-              <ListboxOptions className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+              <ListboxOptions className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm dark:bg-zinc-800 dark:ring-white/10">
                 <ListboxOption
                   key="all"
                   className={({ active }) =>
                     `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                      active ? 'bg-amber-100 text-amber-900' : 'text-gray-900'
+                      active ? 'bg-amber-100 text-amber-900' : 'text-gray-900 dark:text-white'
                     }`
                   }
                   value=""
@@ -95,7 +95,7 @@ export default function Filter({
                     key={instructor.id}
                     className={({ active }) =>
                       `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                        active ? 'bg-amber-100 text-amber-900' : 'text-gray-900'
+                        active ? 'bg-amber-100 text-amber-900' : 'text-gray-900 dark:text-white'
                       }`
                     }
                     value={instructor.id}
@@ -123,7 +123,7 @@ export default function Filter({
       <div className="w-64">
         <Listbox value={selectedPool} onChange={onPoolChange}>
           <div className="relative">
-            <Listbox.Button className="relative w-full cursor-default rounded-lg bg-white py-2 pl-3 pr-10 text-left shadow-md focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white/75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
+            <Listbox.Button className="relative w-full cursor-default rounded-lg bg-white py-2 pl-3 pr-10 text-left text-gray-900 shadow-md focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white/75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm dark:bg-zinc-800 dark:text-white">
               <span className="block truncate">
                 {selectedPool ? pools.find(p => p.id === selectedPool)?.name : 'All Pools'}
               </span>
@@ -137,12 +137,12 @@ export default function Filter({
               leaveFrom="opacity-100"
               leaveTo="opacity-0"
             >
-              <ListboxOptions className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+              <ListboxOptions className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm dark:bg-zinc-800 dark:ring-white/10">
                 <ListboxOption
                   key="all"
                   className={({ active }) =>
                     `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                      active ? 'bg-amber-100 text-amber-900' : 'text-gray-900'
+                      active ? 'bg-amber-100 text-amber-900' : 'text-gray-900 dark:text-white'
                     }`
                   }
                   value=""
@@ -163,7 +163,7 @@ export default function Filter({
                     key={pool.id}
                     className={({ active }) =>
                       `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                        active ? 'bg-amber-100 text-amber-900' : 'text-gray-900'
+                        active ? 'bg-amber-100 text-amber-900' : 'text-gray-900 dark:text-white'
                       }`
                     }
                     value={pool.id}
@@ -191,7 +191,7 @@ export default function Filter({
       <div className="w-64">
         <Listbox value={selectedLessonType} onChange={onLessonTypeChange}>
           <div className="relative">
-            <Listbox.Button className="relative w-full cursor-default rounded-lg bg-white py-2 pl-3 pr-10 text-left shadow-md focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white/75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm">
+            <Listbox.Button className="relative w-full cursor-default rounded-lg bg-white py-2 pl-3 pr-10 text-left text-gray-900 shadow-md focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white/75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm dark:bg-zinc-800 dark:text-white">
               <span className="block truncate">
                 {selectedLessonType ? lessonTypes.find(t => t.id === selectedLessonType)?.name : 'All Types'}
               </span>
@@ -205,13 +205,13 @@ export default function Filter({
               leaveFrom="opacity-100"
               leaveTo="opacity-0"
             >
-              <ListboxOptions className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+              <ListboxOptions className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm dark:bg-zinc-800 dark:ring-white/10">
                 {lessonTypes.map(type => (
                   <ListboxOption
                     key={type.id}
                     className={({ active }) =>
                       `relative cursor-default select-none py-2 pl-10 pr-4 ${
-                        active ? 'bg-amber-100 text-amber-900' : 'text-gray-900'
+                        active ? 'bg-amber-100 text-amber-900' : 'text-gray-900 dark:text-white'
                       }`
                     }
                     value={type.id}
@@ -241,11 +241,11 @@ export default function Filter({
           type="date"
           value={date}
           onChange={handleDateChange}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm"
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:[color-scheme:dark]"
         />
         <button
           onClick={handleClearDate}
-          className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-zinc-800 dark:text-white dark:border-zinc-700 dark:hover:bg-zinc-700"
         >
           Clear
         </button>

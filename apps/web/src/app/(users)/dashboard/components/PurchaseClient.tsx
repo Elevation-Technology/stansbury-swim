@@ -13,6 +13,7 @@ import React from 'react'
 import { useUser } from '@contexts/user-context'
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js'
 import { Button } from '@/app/components/button'
+import { Badge } from '@/app/components/badge'
 import { useRouter } from 'next/navigation'
 import { ProductResponseDto, ParentTotScheduleResponseDto, StudentResponseDto, PoolDto } from '@/api'
 import Header from './Header'
@@ -55,6 +56,12 @@ export default function PurchaseClient({
     style: 'currency',
     currency: 'USD',
   })
+
+  const splitDescription = (description: string): { badge: string | null; rest: string } => {
+    const idx = description.indexOf('.')
+    if (idx === -1) return { badge: null, rest: description }
+    return { badge: description.slice(0, idx).trim(), rest: description.slice(idx + 1).trim() }
+  }
 
   useEffect(() => {
     if (window.ApplePaySession && window.ApplePaySession.canMakePayments()) {
@@ -219,7 +226,9 @@ export default function PurchaseClient({
             )}
             <div className="mt-4">
               <fieldset aria-label="products" className="-space-y-px rounded-md bg-white">
-                {privateLessons.map(product => (
+                {privateLessons.map(product => {
+                  const { badge, rest } = splitDescription(product.description)
+                  return (
                   <label
                     key={product.id}
                     aria-label={product.name}
@@ -238,9 +247,16 @@ export default function PurchaseClient({
                     />
                     <div className="flex flex-col flex-1">
                       <span className="ml-3 flex flex-col">
-                        <span className="block text-sm font-medium text-gray-900 ">{product.name} </span>
+                        <span className="block text-sm font-medium text-gray-900">
+                          {product.name}
+                          {badge && (
+                            <Badge color="sky" className="ml-2">
+                              {badge}
+                            </Badge>
+                          )}
+                        </span>
                         <span className="block text-sm text-gray-500 ">
-                          {product.description} {currencyFormatter.format(product.amount / product.credits)} per lesson
+                          {rest} {currencyFormatter.format(product.amount / product.credits)} per lesson
                         </span>
                       </span>
                     </div>
@@ -274,8 +290,11 @@ export default function PurchaseClient({
                       </div>
                     ) : null}
                   </label>
-                ))}
-                {groupLessons.map(product => (
+                  )
+                })}
+                {groupLessons.map(product => {
+                  const { badge, rest } = splitDescription(product.description)
+                  return (
                   <label
                     key={product.id}
                     aria-label={product.name}
@@ -295,10 +314,16 @@ export default function PurchaseClient({
                     <div className="flex flex-col sm:flex-row w-full gap-2">
                       <div className="flex flex-col flex-1 w-full sm:w-auto ml-3">
                         <span className="flex flex-col">
-                          <span className="block text-sm font-medium text-gray-900 ">{product.name}</span>
+                          <span className="block text-sm font-medium text-gray-900">
+                            {product.name}
+                            {badge && (
+                              <Badge color="sky" className="ml-2">
+                                {badge}
+                              </Badge>
+                            )}
+                          </span>
                           <span className="block text-sm text-gray-500 ">
-                            {product.description} {currencyFormatter.format(product.amount / product.credits)} per
-                            session
+                            {rest} {currencyFormatter.format(product.amount / product.credits)} per session
                           </span>
                         </span>
                       </div>
@@ -352,7 +377,8 @@ export default function PurchaseClient({
                       </div>
                     </div>
                   </label>
-                ))}
+                  )
+                })}
               </fieldset>
               <div className="w-full sm:w-[24rem] md:w-[32rem] mx-auto flex flex-col items-center">
                 <div className="w-full rounded-lg bg-white shadow p-4 mb-6">

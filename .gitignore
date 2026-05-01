@@ -55,6 +55,7 @@ certificates
 .env.production
 .env.staging
 .env.development
+.env.local
 
 google-credentials.json
 # Sentry Config File

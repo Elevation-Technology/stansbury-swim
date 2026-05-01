@@ -12,6 +12,7 @@ export class PaymentSaga {
   onPaymentCreatedEvent = (events$: Observable<any>): Observable<ICommand> => {
     return events$.pipe(
       ofType(PaymentCreatedEvent),
+      filter(event => event.payment.status === PaymentStatusTypesEnum.SUCCESS),
       map(event => new RemoveUserFromWaitlistCommand(event.payment)),
     )
   }

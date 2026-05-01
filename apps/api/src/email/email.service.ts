@@ -11,7 +11,7 @@ import { formatInTimeZone } from 'date-fns-tz'
 import { PoolService } from 'pool/pool.service'
 import { InstructorService } from 'instructor/instructor.service'
 
-const FROM_ADDRESS = 'no-reply@stansburyswim.com'
+const FROM_ADDRESS = 'Stansbury Swim <no-reply@stansburyswim.com>'
 const LOGO_URL = 'https://stansburyswim.com/images/logo.png'
 const SITE_URL = 'https://stansburyswim.com'
 const DASHBOARD_URL = 'https://stansburyswim.com/dashboard'

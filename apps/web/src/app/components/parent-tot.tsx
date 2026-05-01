@@ -19,9 +19,11 @@ export default async function ParentTot() {
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">{announcement?.heading}</h2>
           <p className="mt-6 text-lg leading-8 text-gray-600">{announcement?.content}</p>
         </div>
-        <ol className="mt-4 space-y-1 text-sm leading-6 text-gray-500">
-          {schedules
-            ? schedules.map(schedule => {
+        <div>
+          <h3 className="text-xl font-semibold tracking-tight text-gray-900">Upcoming Group Lessons</h3>
+          {schedules && schedules.length > 0 ? (
+            <ol className="mt-4 space-y-1 text-sm leading-6 text-gray-500">
+              {schedules.map(schedule => {
                 const instructor = instructors.find(instructor => instructor.id === schedule.instructorId)
                 const pool = pools.find(pool => pool.id === schedule.poolId)
                 const name = `${instructor?.name ?? 'Private instructor'} at ${pool?.name}`
@@ -43,9 +45,14 @@ export default async function ParentTot() {
                     </a>
                   </li>
                 )
-              })
-            : null}
-        </ol>
+              })}
+            </ol>
+          ) : (
+            <p className="mt-4 text-sm leading-6 text-gray-500">
+              No group lessons are available to book right now. Check back soon!
+            </p>
+          )}
+        </div>
       </div>
     </div>
   )
