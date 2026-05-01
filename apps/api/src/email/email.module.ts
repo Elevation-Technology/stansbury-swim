@@ -16,13 +16,16 @@ import { SendReservationEmailHandler } from './commands/send-reservation-email/s
 import { PoolModule } from 'pool/pool.module'
 import { InstructorModule } from 'instructor/instructor.module'
 import { SendScheduleReminderEmailHandler } from './commands/send-schedule-reminder-email/send-schedule-reminder-email.handler'
+import { SendWaitlistAllowedEmailHandler } from './commands/send-waitlist-allowed-email/send-waitlist-allowed-email.handler'
+import { WaitlistSaga } from './waitlist.saga'
 const COMMAND_HANDLERS = [
   SendCancellationEmailHandler,
   SendWelcomeEmailHandler,
   SendReservationEmailHandler,
   SendScheduleReminderEmailHandler,
+  SendWaitlistAllowedEmailHandler,
 ]
-const SAGAS = [UserSaga, ScheduleSaga]
+const SAGAS = [UserSaga, ScheduleSaga, WaitlistSaga]
 
 @Module({
   imports: [

@@ -202,6 +202,7 @@ export class ScheduleController {
   }
 
   @Get('available-dates')
+  @ApiQuery({ name: 'timezone', required: false, description: 'IANA timezone (e.g., America/Denver)' })
   async findAvailableDates(@Query() query: { timezone?: string }) {
     const { timezone } = query
     return this.scheduleService.findAvailableDates(timezone)

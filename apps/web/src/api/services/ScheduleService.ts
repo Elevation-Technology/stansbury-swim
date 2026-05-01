@@ -101,13 +101,19 @@ export class ScheduleService {
         });
     }
     /**
+     * @param timezone IANA timezone (e.g., America/Denver)
      * @returns any
      * @throws ApiError
      */
-    public static scheduleControllerFindAvailableDates(): CancelablePromise<any> {
+    public static scheduleControllerFindAvailableDates(
+        timezone?: string,
+    ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/schedules/available-dates',
+            query: {
+                'timezone': timezone,
+            },
         });
     }
     /**

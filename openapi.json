@@ -1480,7 +1480,15 @@
     "/api/schedules/available-dates": {
       "get": {
         "operationId": "ScheduleController_findAvailableDates",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "timezone",
+            "required": false,
+            "in": "query",
+            "description": "IANA timezone (e.g., America/Denver)",
+            "schema": {}
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -2083,7 +2091,17 @@
     "/api/stats": {
       "get": {
         "operationId": "StatsController_findAll",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "year",
+            "required": false,
+            "in": "query",
+            "description": "Season year (defaults to current year)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "The stats for the site",

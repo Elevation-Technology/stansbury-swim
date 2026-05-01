@@ -28,6 +28,8 @@ import { InstructorService } from '@/services/api/shared/instructorService'
 import Header from '../components/Header'
 import Time from '@/app/components/time'
 
+const TIMEZONE = 'America/Denver'
+
 export interface Option {
   value: string
   label: string
@@ -83,7 +85,7 @@ export default function Schedule() {
 
   useEffect(() => {
     const fetchAvailableDates = async () => {
-      const dates = await ScheduleService.findAvailableDates()
+      const dates = await ScheduleService.findAvailableDates(TIMEZONE)
       setAvailableDates(dates)
     }
     fetchAvailableDates()
@@ -188,6 +190,7 @@ export default function Schedule() {
         instructors: selectedInstructors.filter(o => o.checked).map(o => o.value),
         daysOfWeek: selectedDays.filter(o => o.checked).map(o => o.value),
         date: selectedDate,
+        timezone: TIMEZONE,
       })
     } catch {
       schedules = (await ScheduleService.findAll()) as unknown as SearchScheduleResponseDto[]

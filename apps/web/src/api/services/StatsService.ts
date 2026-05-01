@@ -24,13 +24,19 @@ export class StatsService {
         });
     }
     /**
+     * @param year Season year (defaults to current year)
      * @returns StatsResponseDto The stats for the site
      * @throws ApiError
      */
-    public static statsControllerFindAll(): CancelablePromise<StatsResponseDto> {
+    public static statsControllerFindAll(
+        year?: number,
+    ): CancelablePromise<StatsResponseDto> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/stats',
+            query: {
+                'year': year,
+            },
         });
     }
 }

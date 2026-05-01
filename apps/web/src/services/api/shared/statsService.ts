@@ -3,8 +3,8 @@ import { BaseService, WithConfig } from './baseService'
 
 @WithConfig()
 export class StatsService extends BaseService {
-  static async findAll() {
-    return GeneratedStatsService.statsControllerFindAll()
+  static async findAll(year?: number) {
+    return GeneratedStatsService.statsControllerFindAll(year)
   }
 
   static async findInstructorStats(instructorId: string) {

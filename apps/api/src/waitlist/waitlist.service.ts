@@ -1,10 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { Model, Types } from 'mongoose'
 import { InjectModel } from '@nestjs/mongoose'
+import { EventBus } from '@nestjs/cqrs'
 import { WaitlistEntity } from './entities/waitlist.entity'
 import { User } from 'user/user'
 import { UserService } from 'user/user.service'
 import { Waitlist } from './waitlist'
+import { WaitlistAllowedEvent } from './events/waitlist-allowed.event'
 
 const mapper = (entity: WaitlistEntity, user: User): Waitlist => {
   return {
@@ -27,6 +29,7 @@ export class WaitlistService {
     @InjectModel(WaitlistEntity.name)
     private readonly model: Model<WaitlistEntity>,
     private readonly userService: UserService,
+    private readonly eventBus: EventBus,
   ) {}
   async join(userId: string): Promise<Waitlist> {
     const _id = new Types.ObjectId()
@@ -74,6 +77,9 @@ export class WaitlistService {
   }
 
   async allowPurchase(userId: string): Promise<Waitlist> {
+    const existing = await this.model.findOne({ userId: new Types.ObjectId(userId) })
+    const wasAlreadyAllowed = existing?.allowed === true
+
     await this.model.updateOne(
       { userId: new Types.ObjectId(userId) },
       {
@@ -90,6 +96,9 @@ export class WaitlistService {
     const user = await this.userService.findOne(userId)
     if (!user) {
       throw new NotFoundException('User not found')
+    }
+    if (!wasAlreadyAllowed) {
+      this.eventBus.publish(new WaitlistAllowedEvent(user))
     }
     return mapper(entity, user)
   }

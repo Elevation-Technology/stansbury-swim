@@ -258,21 +258,27 @@ export class ScheduleService {
     await this.model.updateOne({ _id: new Types.ObjectId(id) }, { $set: { status: ScheduleStatusEnum.CANCELED } })
   }
 
-  async countAvailablePrivateLessons(): Promise<number> {
+  async countAvailablePrivateLessons(range?: { from?: Date; to?: Date }): Promise<number> {
+    const startDateTime: any = { $gt: new Date() }
+    if (range?.from) startDateTime.$gte = range.from
+    if (range?.to) startDateTime.$lt = range.to
     return await this.model.countDocuments({
       lessonType: LessonTypesEnum.PRIVATE,
       status: ScheduleStatusEnum.ACTIVE,
       $expr: { $lt: [{ $size: '$registrations' }, '$classSize'] },
-      startDateTime: { $gt: new Date() },
+      startDateTime,
     })
   }
 
-  async countAvailableGroupLessons(): Promise<number> {
+  async countAvailableGroupLessons(range?: { from?: Date; to?: Date }): Promise<number> {
+    const startDateTime: any = { $gt: new Date() }
+    if (range?.from) startDateTime.$gte = range.from
+    if (range?.to) startDateTime.$lt = range.to
     return await this.model.countDocuments({
       lessonType: LessonTypesEnum.GROUP,
       status: ScheduleStatusEnum.ACTIVE,
       $expr: { $lt: [{ $size: '$registrations' }, '$classSize'] },
-      startDateTime: { $gt: new Date() },
+      startDateTime,
     })
   }
 

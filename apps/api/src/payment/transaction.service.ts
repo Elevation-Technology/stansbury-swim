@@ -95,19 +95,32 @@ export class TransactionService {
     return (await this.model.find({ userId: new Types.ObjectId(userId) })).map(mapper)
   }
 
-  async countCredits(query: { transactionType: TransactionTypesEnum; creditType: CreditTypesEnum }): Promise<number> {
-    const transactions = await this.model.find(query)
+  async countCredits(query: {
+    transactionType: TransactionTypesEnum
+    creditType: CreditTypesEnum
+    from?: Date
+    to?: Date
+  }): Promise<number> {
+    const { from, to, ...rest } = query
+    const filter: any = { ...rest }
+    if (from || to) {
+      filter.createdAt = {}
+      if (from) filter.createdAt.$gte = from
+      if (to) filter.createdAt.$lt = to
+    }
+    const transactions = await this.model.find(filter)
     return transactions.reduce((acc, transaction) => acc + Math.abs(transaction.credits), 0)
   }
 
-  async aggregateUserCreditBalances(): Promise<Record<string, number>> {
-    // Aggregate unused credits for all users (PRIVATE creditType)
+  async aggregateUserCreditBalances(range?: { from?: Date; to?: Date }): Promise<Record<string, number>> {
+    const match: any = { creditType: 'private' }
+    if (range?.from || range?.to) {
+      match.createdAt = {}
+      if (range.from) match.createdAt.$gte = range.from
+      if (range.to) match.createdAt.$lt = range.to
+    }
     const results = await this.model.aggregate([
-      {
-        $match: {
-          creditType: 'private',
-        },
-      },
+      { $match: match },
       {
         $group: {
           _id: '$userId',

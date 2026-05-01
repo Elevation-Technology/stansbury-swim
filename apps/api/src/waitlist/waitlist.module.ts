@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
+import { CqrsModule } from '@nestjs/cqrs'
 import { WaitlistEntity, WaitlistSchema } from './entities/waitlist.entity'
 import { WaitlistService } from './waitlist.service'
 import { WaitlistController } from './waitlist.controller'
@@ -11,6 +12,7 @@ import { UserModule } from 'user/user.module'
 
 @Module({
   imports: [
+    CqrsModule,
     SiteConfigModule,
     forwardRef(() => UserModule),
     MongooseModule.forFeature([{ name: WaitlistEntity.name, schema: WaitlistSchema }]),

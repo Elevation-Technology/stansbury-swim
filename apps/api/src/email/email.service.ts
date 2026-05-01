@@ -85,6 +85,30 @@ export class EmailService {
     }
   }
 
+  public async sendWaitlistAllowedEmail(user: User): Promise<void> {
+    const purchaseUrl = `${DASHBOARD_URL}/purchase`
+
+    const html = this.renderEmailLayout(
+      "You're off the waitlist!",
+      `${this.renderHeading("You're off the waitlist!")}
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">Hi ${user.firstName},</p>
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">Good news &mdash; a spot has opened up and you're now able to purchase lessons with Stansbury Swim. Click below to head to your dashboard and complete your purchase.</p>
+      ${this.renderButton(purchaseUrl, 'Purchase lessons')}
+      <p style="margin:24px 0 8px 0;font-size:13px;line-height:1.6;color:#6b7280;">If the button doesn't work, copy and paste this link into your browser:</p>
+      <p style="margin:0 0 24px 0;font-size:13px;line-height:1.6;word-break:break-all;"><a href="${purchaseUrl}" style="color:#428BCA;text-decoration:underline;">${purchaseUrl}</a></p>
+      ${this.renderSignoff()}
+      ${this.renderPoliciesList(true)}
+      ${this.renderSignoff()}`,
+    )
+
+    return this.sendMail({
+      to: user.email,
+      from: FROM_ADDRESS,
+      subject: "You're off the waitlist — purchase your lessons",
+      html,
+    })
+  }
+
   public async sendWelcomeEmail(user: User): Promise<void> {
     const html = this.renderEmailLayout(
       'Welcome to Stansbury Swim',

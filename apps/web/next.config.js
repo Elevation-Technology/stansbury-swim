@@ -38,7 +38,7 @@ module.exports = withSentryConfig(composePlugins(...plugins)(nextConfig), {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
-  org: 'pawfect-edit',
+  org: 'elevation-tech',
   project: 'stansburyswim',
 
   // Only print logs for uploading source maps in CI

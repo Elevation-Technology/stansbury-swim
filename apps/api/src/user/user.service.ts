@@ -393,7 +393,13 @@ export class UserService {
     return entities.map(mapper)
   }
 
-  async countActiveUsers(): Promise<number> {
-    return await this.model.countDocuments({ role: Role.User })
+  async countActiveUsers(range?: { from?: Date; to?: Date }): Promise<number> {
+    const filter: any = { role: Role.User }
+    if (range?.from || range?.to) {
+      filter.createdAt = {}
+      if (range.from) filter.createdAt.$gte = range.from
+      if (range.to) filter.createdAt.$lt = range.to
+    }
+    return await this.model.countDocuments(filter)
   }
 }

@@ -57,7 +57,7 @@ export class ScheduleService extends BaseService {
     )
   }
 
-  static async findAvailableDates() {
-    return GeneratedScheduleService.scheduleControllerFindAvailableDates()
+  static async findAvailableDates(timezone?: string) {
+    return GeneratedScheduleService.scheduleControllerFindAvailableDates(timezone)
   }
 }

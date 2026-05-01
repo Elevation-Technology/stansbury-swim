@@ -14,32 +14,41 @@ export class StatsService {
     private readonly scheduleService: ScheduleService,
   ) {}
 
-  async getStats(): Promise<Stats> {
+  async getStats(year?: number): Promise<Stats> {
+    const targetYear = year ?? new Date().getUTCFullYear()
+    const range = {
+      from: new Date(Date.UTC(targetYear, 0, 1)),
+      to: new Date(Date.UTC(targetYear + 1, 0, 1)),
+    }
+
     const privateLessons = await this.transactionService.countCredits({
       transactionType: TransactionTypesEnum.PurchaseCredits,
       creditType: CreditTypesEnum.PRIVATE,
+      ...range,
     })
     const groupLessons = await this.transactionService.countCredits({
       transactionType: TransactionTypesEnum.PurchaseCredits,
       creditType: CreditTypesEnum.GROUP,
+      ...range,
     })
 
     const scheduledPrivateLessons = await this.transactionService.countCredits({
       transactionType: TransactionTypesEnum.Register,
       creditType: CreditTypesEnum.PRIVATE,
+      ...range,
     })
 
-    const unusedCredits = await this.transactionService.aggregateUserCreditBalances()
-    // sum the values
+    const unusedCredits = await this.transactionService.aggregateUserCreditBalances(range)
     const totalUnusedCredits = Object.values(unusedCredits).reduce((acc, value) => acc + value, 0)
 
     const scheduledGroupLessons = await this.transactionService.countCredits({
       transactionType: TransactionTypesEnum.Register,
       creditType: CreditTypesEnum.GROUP,
+      ...range,
     })
 
-    const availablePrivateLessons = await this.scheduleService.countAvailablePrivateLessons()
-    const availableGroupLessons = await this.scheduleService.countAvailableGroupLessons()
+    const availablePrivateLessons = await this.scheduleService.countAvailablePrivateLessons(range)
+    const availableGroupLessons = await this.scheduleService.countAvailableGroupLessons(range)
 
     return {
       purchaseCounts: {
@@ -53,7 +62,7 @@ export class StatsService {
         unscheduledGroup: groupLessons - Math.abs(scheduledGroupLessons),
       },
       userCounts: {
-        active: await this.userService.countActiveUsers(),
+        active: await this.userService.countActiveUsers(range),
       },
     }
   }
