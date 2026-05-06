@@ -7,6 +7,7 @@ export interface Waitlist {
   phone: string
   allowed: boolean
   allowedOn?: string
+  archivedAt?: string
   createdAt: string
   updatedAt: string
 }

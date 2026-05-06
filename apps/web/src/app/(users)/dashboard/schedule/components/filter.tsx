@@ -44,11 +44,13 @@ interface FilterProps {
   onPoolsChange: (pools: Option[]) => void
   onInstructorsChange: (instructors: Option[]) => void
   onDaysChange: (days: Option[]) => void
+  onTimesChange: (times: Option[]) => void
   onDateChange: (date: string) => void
   selectedDate: string
   pools: Option[]
   instructors: Option[]
   days: Option[]
+  times: Option[]
   availableDates: string[]
 }
 
@@ -56,11 +58,13 @@ export default function Filter({
   onPoolsChange,
   onInstructorsChange,
   onDaysChange,
+  onTimesChange,
   onDateChange,
   selectedDate,
   pools,
   instructors,
   days,
+  times,
   availableDates,
 }: FilterProps) {
   const [open, setOpen] = useState(false)
@@ -74,8 +78,13 @@ export default function Filter({
     name: 'Days',
     options: days,
   }
+  const timeSection = {
+    id: 'time',
+    name: 'Time of day',
+    options: times,
+  }
 
-  const filters = [poolSection, instructorSection, daySection]
+  const filters = [poolSection, instructorSection, daySection, timeSection]
 
   function handleFilterChange(
     section: { id: string; name: string; options: Array<Option> },
@@ -89,6 +98,8 @@ export default function Filter({
       func = onInstructorsChange
     } else if (section.id === 'day') {
       func = onDaysChange
+    } else if (section.id === 'time') {
+      func = onTimesChange
     }
     func(
       section.options.map(o => ({

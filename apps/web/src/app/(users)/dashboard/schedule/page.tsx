@@ -107,9 +107,16 @@ export default function Schedule() {
     { value: 'sunday', label: 'Sunday', checked: false },
   ]
 
+  const times = [
+    { value: 'morning', label: 'Morning (before 12 PM)', checked: true },
+    { value: 'afternoon', label: 'Afternoon (12 – 5 PM)', checked: true },
+    { value: 'evening', label: 'Evening (5 PM and later)', checked: true },
+  ]
+
   const [selectedPools, setSelectedPools] = useState([] as Option[])
   const [selectedInstructors, setSelectedInstructors] = useState([] as Option[])
   const [selectedDays, setSelectedDays] = useState(days)
+  const [selectedTimes, setSelectedTimes] = useState(times)
 
   useEffect(() => {
     if (!user?.signedWaiver) {
@@ -129,6 +136,21 @@ export default function Schedule() {
 
   const handleDaysChange = (days: Option[]) => {
     setSelectedDays(days)
+  }
+
+  const handleTimesChange = (times: Option[]) => {
+    setSelectedTimes(times)
+    setCurrentPage(1)
+  }
+
+  const getTimeBucket = (iso: string): 'morning' | 'afternoon' | 'evening' => {
+    const hour = parseInt(
+      new Intl.DateTimeFormat('en-US', { timeZone: TIMEZONE, hour: 'numeric', hour12: false }).format(new Date(iso)),
+      10,
+    )
+    if (hour < 12) return 'morning'
+    if (hour < 17) return 'afternoon'
+    return 'evening'
   }
 
   const handleDateChange = (date: string) => {
@@ -229,9 +251,15 @@ export default function Schedule() {
     refreshUser()
   }
 
-  const paginatedSchedules = schedules.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  const checkedTimeBuckets = selectedTimes.filter(t => t.checked).map(t => t.value)
+  const filteredSchedules =
+    checkedTimeBuckets.length === selectedTimes.length
+      ? schedules
+      : schedules.filter(s => checkedTimeBuckets.includes(getTimeBucket(s.startDateTime)))
 
-  const totalPages = Math.ceil(schedules.length / itemsPerPage)
+  const paginatedSchedules = filteredSchedules.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+  const totalPages = Math.ceil(filteredSchedules.length / itemsPerPage)
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
@@ -275,15 +303,19 @@ export default function Schedule() {
                 onPoolsChange={handlePoolsChange}
                 onInstructorsChange={handleInstructorsChange}
                 onDaysChange={handleDaysChange}
+                onTimesChange={handleTimesChange}
                 pools={selectedPools}
                 instructors={selectedInstructors}
                 days={selectedDays}
+                times={selectedTimes}
                 selectedDate={selectedDate}
                 onDateChange={handleDateChange}
                 availableDates={availableDates}
               />
             </div>
-            <h2 className="text-base font-semibold leading-6 text-gray-900">Available Classes ({schedules.length})</h2>
+            <h2 className="text-base font-semibold leading-6 text-gray-900">
+              Available Classes ({filteredSchedules.length})
+            </h2>
             <ol className="mt-4 space-y-1 text-sm leading-6 text-gray-500">
               {paginatedSchedules
                 ? paginatedSchedules.map(schedule => {
@@ -382,7 +414,7 @@ export default function Schedule() {
                   })
                 : null}
             </ol>
-            {schedules.length > itemsPerPage && (
+            {filteredSchedules.length > itemsPerPage && (
               <div className="mt-4 flex items-center justify-between border-t border-gray-200 px-4 py-3 sm:px-6">
                 <div className="flex flex-1 justify-between sm:hidden">
                   <button
@@ -404,8 +436,10 @@ export default function Schedule() {
                   <div>
                     <p className="text-sm text-gray-700">
                       Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                      <span className="font-medium">{Math.min(currentPage * itemsPerPage, schedules.length)}</span> of{' '}
-                      <span className="font-medium">{schedules.length}</span> results
+                      <span className="font-medium">
+                        {Math.min(currentPage * itemsPerPage, filteredSchedules.length)}
+                      </span>{' '}
+                      of <span className="font-medium">{filteredSchedules.length}</span> results
                     </p>
                   </div>
                   <div>

@@ -18,6 +18,9 @@ export class WaitlistEntity extends Document {
 
   @Prop({ required: false })
   allowedOn?: Date
+
+  @Prop({ required: false })
+  archivedAt?: Date
 }
 
 export const WaitlistSchema = SchemaFactory.createForClass(WaitlistEntity)

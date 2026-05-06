@@ -7,6 +7,8 @@ export { CancelablePromise, CancelError } from './core/CancelablePromise';
 export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
+export type { BulkArchiveWaitlistDto } from './models/BulkArchiveWaitlistDto';
+export type { BulkArchiveWaitlistResponseDto } from './models/BulkArchiveWaitlistResponseDto';
 export type { CreateAnnouncementDto } from './models/CreateAnnouncementDto';
 export type { CreateInstructorDto } from './models/CreateInstructorDto';
 export { CreatePaymentDto } from './models/CreatePaymentDto';

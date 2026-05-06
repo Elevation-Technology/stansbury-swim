@@ -110,13 +110,24 @@ export class EmailService {
   }
 
   public async sendWelcomeEmail(user: User): Promise<void> {
+    const pStyle = 'style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;"'
+    const olStyle = 'style="margin:0 0 16px 0;padding:0 0 0 20px;font-size:15px;line-height:1.6;color:#374151;"'
+    const liStyle = 'style="margin-bottom:12px;"'
+
     const html = this.renderEmailLayout(
-      'Welcome to Stansbury Swim',
-      `${this.renderHeading('Stansbury Swim Registration')}
-      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">Thanks for registering with Stansbury Swim! We can't wait to swim with you.</p>
-      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">Next, head to your dashboard to add students, purchase credits, reserve your lesson, and have fun!</p>
+      'Welcome to Stansbury Swim!',
+      `${this.renderHeading('Welcome to Stansbury Swim!')}
+      <p ${pStyle}>Hello,</p>
+      <p ${pStyle}>Thanks for registering with Stansbury Swim! We are excited to help your children develop confidence and water safety skills.</p>
+      <h2 style="margin:32px 0 12px 0;font-size:18px;line-height:1.3;color:#142e55;font-weight:600;">Getting Started</h2>
+      <p ${pStyle}>To make the most out of your swimming lessons, we encourage you to follow the steps below to make your child's first splash a success.</p>
+      <ol ${olStyle}>
+        <li ${liStyle}><strong style="color:#142e55;">Add your students to your account:</strong> Log in, click on "dashboard" in the top right corner, then "add student".</li>
+        <li ${liStyle}><strong style="color:#142e55;">Purchase Swim Credits:</strong> Click on "dashboard" and then "purchase". Credit packages can be shared with siblings, friends, or neighbors!</li>
+        <li ${liStyle}><strong style="color:#142e55;">Book your lessons:</strong> In your dashboard click "schedule". Feel free to filter pools, days, or instructors. In the "available" dropdown box, select your desired student for that lesson. <strong>If you haven't already, it will prompt you to sign the waiver before you are able to schedule lessons.</strong></li>
+      </ol>
+      <p ${pStyle}>Check out our <a href="${SITE_URL}/faq" style="color:#428BCA;">FAQ page</a> for commonly asked questions and other tips!</p>
       ${this.renderButton(DASHBOARD_URL, 'Go to your dashboard')}
-      ${this.renderSignoff()}
       ${this.renderPoliciesList(true)}
       ${this.renderSignoff()}`,
     )
@@ -124,7 +135,7 @@ export class EmailService {
     return this.sendMail({
       to: user.email,
       from: FROM_ADDRESS,
-      subject: 'Welcome to Stansbury Swim',
+      subject: 'Welcome to Stansbury Swim!',
       html,
     })
   }
@@ -336,23 +347,35 @@ export class EmailService {
   }
 
   private renderPoliciesList(includePoolAddresses: boolean): string {
+    const h2 = 'style="margin:32px 0 12px 0;font-size:18px;line-height:1.3;color:#142e55;font-weight:600;"'
+    const p = 'style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#374151;"'
     const li = 'style="margin-bottom:8px;"'
-    const poolAddressesItem = includePoolAddresses
-      ? `<li ${li}>Pool addresses: 103 Lakeview, Stansbury Park, 5446 Lanyard Lane, Stansbury Park, and 180 E Durfee St, Grantsville. When you schedule, be sure to note the location as well as date/time/instructor.</li>`
+
+    const ourPools = includePoolAddresses
+      ? `<h2 ${h2}>Our Pools</h2>
+        <p ${p}>Lessons take place at residential pools. Please be respectful of the pool owners' properties and respect their privacy. Address and other details for each pool are listed below.</p>
+        <p ${p}><strong style="color:#142e55;">103 Lakeview Drive, Stansbury Park</strong> and <strong style="color:#142e55;">101 Lakeview Drive, Stansbury Park:</strong> Park perpendicular to the curb to allow for more client parking. Consider parking outside the circle and walk in. Enter through the gates on the right side of either house.</p>
+        <p ${p}><strong style="color:#142e55;">5446 Lanyard Lane, Stansbury Park:</strong> Please park perpendicular to the sidewalk in the circle. If circle is full, park parallel to the sidewalk on the street. DO NOT block driveways. Enter through the gate to the right of the garage.</p>
+        <p ${p}><strong style="color:#142e55;">180 E Durfee St, Grantsville:</strong> Park perpendicular to sidewalk in front of house or lots on either side of the house. Do not block mailbox. Walk down driveway and enter between the garage and large shop.</p>`
       : ''
-    return `<h2 style="margin:32px 0 12px 0;font-size:16px;line-height:1.3;color:#142e55;font-weight:600;">Policies and Tips</h2>
+
+    return `${ourPools}
+    <h2 ${h2}>Policies and Tips</h2>
+    <p ${p}>To show respect to all our pool owners and other clients, please follow these requests:</p>
     <ul style="margin:0 0 16px 0;padding:0 0 0 20px;font-size:14px;line-height:1.6;color:#374151;">
-      ${poolAddressesItem}
-      <li ${li}>All lessons are private, with one-on-one instruction customized to the student's goals and skill level.</li>
-      <li ${li}>Lessons start and end promptly. We advise arriving at least 5 minutes early to be ready for the lesson.</li>
-      <li ${li}>Please be considerate when parking. Do not block driveways or mailboxes.</li>
-      <li ${li}>All lesson credits MUST be used in the season purchased. All unused lesson credits will be forfeited with no refund. Seasons typically end July 31.</li>
-      <li ${li}>Text "@stansswim1" to 81010 or visit <a href="https://remind.com/join/stansswim1" style="color:#428BCA;">remind.com/join/stansswim1</a> to receive text updates (including new schedule offerings and cancellations due to weather).</li>
-      <li ${li}>24-hour cancellation notice is required. There is no charge to reschedule any lesson, if done more than 24 hours ahead of time. Within 24 hours of lesson time, there will be a full charge on all lessons. You are welcome to send a replacement student if the scheduled student is unavailable.</li>
+      <li ${li}>Do not block driveways, mailboxes, or garbage cans.</li>
+      <li ${li}>NO PETS.</li>
+      <li ${li}>Children not in a lesson are NOT allowed in the pools while they wait.</li>
+      <li ${li}>Swim diapers are required for children not fully potty-trained. We strongly prefer reusable swim diapers over disposable, and sunscreen lotion over aerosol.</li>
+      <li ${li}>No changing your kids into swimsuits on deck.</li>
+      <li ${li}>Lessons start and end promptly. Please arrive at least 5 minutes early to be ready for the lesson.</li>
+      <li ${li}>24-hour cancellation notice is required. There is no charge to reschedule any lesson if done more than 24 hours ahead of time. Within 24 hours of lesson time, there will be a full charge on all lessons. You are welcome to send a replacement student if the scheduled student is unavailable.</li>
+      <li ${li}>All lesson credits MUST be used in the season purchased. Unused lesson credits will be forfeited with no refund. Seasons typically end July 31.</li>
       <li ${li}>Instructors are subject to change without notice.</li>
-      <li ${li}>We strongly prefer reusable swim diapers over disposable and sunscreen lotion over aerosol.</li>
-      <li ${li}>Recommended: Ages 3-5 20-40 Lessons, Ages 5-10 20 Lessons + Maintenance Program 1-3 times/week.</li>
-      <li ${li}>Give your child lots of love and encouragement between lessons. Recognize his or her bravery and achievements. Take pictures and video during the lesson. Children love to watch themselves and gain confidence as they do so.</li>
-    </ul>`
+      <li ${li}>Recommended: Ages 3–5: 20–40 lessons. Ages 5–10: 20 lessons + Maintenance Program 1–3 times/week.</li>
+    </ul>
+    <h2 ${h2}>Stay Connected With Us!</h2>
+    <p ${p}>To get all our updates and stay informed about weather cancellations, follow us on Facebook at <a href="https://www.facebook.com/stansburyswim" style="color:#428BCA;">facebook.com/stansburyswim</a>.</p>
+    <p ${p}>Or join our Remind group: text <strong style="color:#142e55;">"@stansswim1"</strong> to <strong style="color:#142e55;">81010</strong>, or visit <a href="https://remind.com/join/stansswim1" style="color:#428BCA;">remind.com/join/stansswim1</a> to receive text updates (including new schedule offerings and cancellations due to weather).</p>`
   }
 }

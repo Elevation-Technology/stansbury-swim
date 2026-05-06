@@ -1,10 +1,23 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Req, NotFoundException } from '@nestjs/common'
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Req,
+  Query,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common'
 import { WaitlistService } from './waitlist.service'
 import { ActiveUser } from 'iam/authentication/decorators/active-user.decorator'
 import { ActiveUserData } from 'iam/authentication/interfaces/active-user-data.interface'
 import { Roles } from 'iam/authentication/decorators/roles.decorator'
-import { ApiTags, ApiOperation, ApiOkResponse, ApiParam } from '@nestjs/swagger'
+import { ApiTags, ApiOperation, ApiOkResponse, ApiParam, ApiQuery } from '@nestjs/swagger'
 import { WaitlistResponseDto } from './dto/waitlist-response.dto'
+import { BulkArchiveWaitlistDto, BulkArchiveWaitlistResponseDto } from './dto/bulk-archive-waitlist.dto'
 import { Role } from 'iam/role.enum'
 
 @ApiTags('waitlist')
@@ -14,9 +27,12 @@ export class WaitlistController {
 
   @Get('')
   @ApiOperation({ summary: 'Get all waitlist entries' })
+  @ApiQuery({ name: 'includeArchived', type: Boolean, required: false })
   @ApiOkResponse({ type: WaitlistResponseDto, isArray: true })
-  async findAll() {
-    const waitlist = await this.waitlistService.findAll()
+  async findAll(@Query('includeArchived') includeArchived?: string) {
+    const waitlist = await this.waitlistService.findAll({
+      includeArchived: includeArchived === 'true',
+    })
     return waitlist
   }
 
@@ -46,5 +62,35 @@ export class WaitlistController {
       throw new NotFoundException()
     }
     return waitlist
+  }
+
+  @Roles(Role.Admin)
+  @Patch(':id/archive')
+  @ApiOperation({ summary: 'Archive a waitlist entry' })
+  @ApiParam({ name: 'id', type: String, description: 'Waitlist entry id' })
+  @ApiOkResponse({ type: WaitlistResponseDto })
+  async archive(@Param('id') id: string) {
+    return this.waitlistService.archive(id)
+  }
+
+  @Roles(Role.Admin)
+  @Patch(':id/unarchive')
+  @ApiOperation({ summary: 'Restore an archived waitlist entry' })
+  @ApiParam({ name: 'id', type: String, description: 'Waitlist entry id' })
+  @ApiOkResponse({ type: WaitlistResponseDto })
+  async unarchive(@Param('id') id: string) {
+    return this.waitlistService.unarchive(id)
+  }
+
+  @Roles(Role.Admin)
+  @Post('bulk-archive')
+  @ApiOperation({ summary: 'Archive all waitlist entries created before a given date' })
+  @ApiOkResponse({ type: BulkArchiveWaitlistResponseDto })
+  async bulkArchive(@Body() dto: BulkArchiveWaitlistDto) {
+    const before = new Date(dto.before)
+    if (isNaN(before.getTime())) {
+      throw new BadRequestException('Invalid `before` date')
+    }
+    return this.waitlistService.bulkArchiveBefore(before)
   }
 }

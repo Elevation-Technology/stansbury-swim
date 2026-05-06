@@ -14,6 +14,7 @@ const mapper = (entity: WaitlistEntity, user: User): Waitlist => {
     userId: entity.userId.toString(),
     allowed: entity.allowed,
     allowedOn: entity.allowedOn?.toISOString(),
+    archivedAt: entity.archivedAt?.toISOString(),
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.email,
@@ -49,8 +50,9 @@ export class WaitlistService {
     return mapper(entity, user)
   }
 
-  async findAll(): Promise<Waitlist[]> {
-    const entities = await this.model.find()
+  async findAll(options: { includeArchived?: boolean } = {}): Promise<Waitlist[]> {
+    const filter = options.includeArchived ? {} : { archivedAt: { $exists: false } }
+    const entities = await this.model.find(filter)
     const userIds = entities.map(entity => entity.userId.toString())
     const users = await this.userService.findMany(userIds)
     return entities
@@ -105,5 +107,41 @@ export class WaitlistService {
 
   async remove(id: string): Promise<void> {
     await this.model.deleteOne({ _id: new Types.ObjectId(id) })
+  }
+
+  async archive(id: string): Promise<Waitlist> {
+    const _id = new Types.ObjectId(id)
+    await this.model.updateOne({ _id }, { $set: { archivedAt: new Date() } })
+    const entity = await this.model.findById(_id)
+    if (!entity) {
+      throw new NotFoundException('Waitlist entry not found')
+    }
+    const user = await this.userService.findOne(entity.userId.toString())
+    if (!user) {
+      throw new NotFoundException('User not found')
+    }
+    return mapper(entity, user)
+  }
+
+  async unarchive(id: string): Promise<Waitlist> {
+    const _id = new Types.ObjectId(id)
+    await this.model.updateOne({ _id }, { $unset: { archivedAt: '' } })
+    const entity = await this.model.findById(_id)
+    if (!entity) {
+      throw new NotFoundException('Waitlist entry not found')
+    }
+    const user = await this.userService.findOne(entity.userId.toString())
+    if (!user) {
+      throw new NotFoundException('User not found')
+    }
+    return mapper(entity, user)
+  }
+
+  async bulkArchiveBefore(before: Date): Promise<{ archivedCount: number }> {
+    const result = await this.model.updateMany(
+      { createdAt: { $lt: before }, archivedAt: { $exists: false } },
+      { $set: { archivedAt: new Date() } },
+    )
+    return { archivedCount: result.modifiedCount }
   }
 }

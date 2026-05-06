@@ -25,6 +25,9 @@ export class WaitlistResponseDto {
   @ApiProperty({ required: false })
   allowedOn?: string
 
+  @ApiProperty({ required: false })
+  archivedAt?: string
+
   @ApiProperty()
   createdAt: Date
 

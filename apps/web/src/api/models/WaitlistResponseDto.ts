@@ -11,6 +11,7 @@ export type WaitlistResponseDto = {
     phone: string;
     allowed: boolean;
     allowedOn?: string;
+    archivedAt?: string;
     createdAt: string;
     updatedAt: string;
 };
