@@ -6,7 +6,8 @@ declare global {
   }
 }
 import { CheckCircleIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/20/solid'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { PaymentService } from '@/services/api/shared/paymentService'
 import { WaitlistService } from '@/services/api/shared/waitlistService'
 import React from 'react'
@@ -18,6 +19,8 @@ import { useRouter } from 'next/navigation'
 import { ProductResponseDto, ParentTotScheduleResponseDto, StudentResponseDto, PoolDto } from '@/api'
 import Header from './Header'
 import { formatDateTime } from '@/app/utils/dates'
+
+const PAYMENT_STUCK_TIMEOUT_MS = 60_000
 
 interface PurchaseClientProps {
   products: ProductResponseDto[]
@@ -48,9 +51,39 @@ export default function PurchaseClient({
   const [canUseApplePay, setCanUseApplePay] = useState(false)
   const [selectedScheduleId, setSelectedScheduleId] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState('')
-  const { user } = useUser()
+  const { user, isLoading: userLoading, error: userError } = useUser()
   const [onWaitlist, setOnWaitlist] = useState(initialOnWaitlist)
   const [isPaying, setIsPaying] = useState(false)
+  // Mobile Safari can kill the PayPal popup without firing onCancel/onError,
+  // leaving isPaying stuck `true` and silently disabling the entire form.
+  // The timeout below recovers from that state.
+  const paymentTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearPaymentTimeout = () => {
+    if (paymentTimeoutRef.current) {
+      clearTimeout(paymentTimeoutRef.current)
+      paymentTimeoutRef.current = null
+    }
+  }
+
+  const startPaymentTimeout = () => {
+    clearPaymentTimeout()
+    paymentTimeoutRef.current = setTimeout(() => {
+      setIsPaying(false)
+      setError('Payment timed out. Please try again, or refresh the page if the issue persists.')
+      Sentry.captureMessage('PayPal payment timed out — no callback fired within timeout window', {
+        level: 'warning',
+        tags: { context: 'paypal.timeout' },
+      })
+    }, PAYMENT_STUCK_TIMEOUT_MS)
+  }
+
+  const finishPayment = () => {
+    clearPaymentTimeout()
+    setIsPaying(false)
+  }
+
+  useEffect(() => () => clearPaymentTimeout(), [])
 
   const currencyFormatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -69,10 +102,35 @@ export default function PurchaseClient({
     }
   }, [])
 
-  const isMissingContactInfo = !user?.phone || !user?.address1 || !user?.city || !user?.state || !user?.zip
+  // Distinguishing "user is still loading" from "user has missing fields" lets us
+  // show a loading state instead of a misleading "complete contact info" banner
+  // and prevents the form from being silently locked while /me is in flight.
+  const isMissingContactInfo =
+    !userLoading &&
+    !userError &&
+    !!user &&
+    (!user.phone || !user.address1 || !user.city || !user.state || !user.zip)
 
   const privateLessons = products.filter(p => p.lessonType == 'private')
   const groupLessons = products.filter(p => p.lessonType == 'group')
+
+  const selectedProduct = products.find(p => p.id === selectedProductId)
+  const isGroupProduct = selectedProduct?.lessonType === 'group'
+  const isMissingGroupSelections = isGroupProduct && (!selectedScheduleId || !selectedStudentId)
+
+  const inputsDisabled = isMissingContactInfo || isPaying || !purchaseEnabled || userLoading
+  const isPayPalDisabled = inputsDisabled || selectedProductId === '' || isMissingGroupSelections
+
+  const disabledReason = (() => {
+    if (userLoading) return 'Loading your account…'
+    if (userError) return 'We could not load your account. Please refresh the page.'
+    if (!purchaseEnabled) return null // banner above already explains
+    if (isMissingContactInfo) return null // banner above already explains
+    if (isPaying) return 'Payment in progress…'
+    if (selectedProductId === '') return 'Select a product to continue.'
+    if (isMissingGroupSelections) return 'Select a session and a student to continue.'
+    return null
+  })()
 
   useEffect(() => {
     if (selectedProductId) {
@@ -83,37 +141,38 @@ export default function PurchaseClient({
     }
   }, [selectedProductId])
 
-  const paypalCreateOrder = async (): Promise<any> => {
-    setError('')
+  const paypalCreateOrder = async (): Promise<string> => {
+    setError(null)
     setPaymentCompleted(false)
     if (!user) {
-      return router.push('/')
+      router.push('/')
+      throw new Error('You must be signed in to make a purchase')
     }
+    if (!selectedProductId) {
+      setError('Please select a product before continuing.')
+      throw new Error('No product selected')
+    }
+    const product = products.find(p => p.id == selectedProductId)
+    if (product == null) {
+      setError('The selected product is no longer available. Please refresh and try again.')
+      throw new Error('Product not found')
+    }
+
+    let selectedQuantity = quantity
+    if (product.credits != 1) {
+      setQuantity(1)
+      selectedQuantity = 1
+    }
+    if (product.lessonType == 'group' && !selectedScheduleId) {
+      setError('Please select a session before continuing.')
+      throw new Error('Please select a session')
+    }
+    if (product.lessonType == 'group' && !selectedStudentId) {
+      setError('Please select a student before continuing.')
+      throw new Error('Please select a student')
+    }
+
     try {
-      if (!selectedProductId) {
-        setError('No product selected')
-        return Promise.reject('No product selected')
-      }
-      const product = products.find(p => p.id == selectedProductId)
-
-      if (product == null) {
-        setError('Product not found')
-        return Promise.reject('Product not found')
-      }
-
-      let selectedQuantity = quantity
-      if (product.credits != 1) {
-        setQuantity(1)
-        selectedQuantity = 1
-      }
-      if (product.lessonType == 'group' && !selectedScheduleId) {
-        setError('Please select a session')
-        return Promise.reject('Please select a session')
-      }
-      if (product.lessonType == 'group' && !selectedStudentId) {
-        setError('Please select a student')
-        return Promise.reject('Please select a student')
-      }
       const response = await PaymentService.createPaypalOrder({
         productId: selectedProductId,
         userId: user.id,
@@ -121,26 +180,51 @@ export default function PurchaseClient({
         scheduleId: selectedScheduleId,
         studentId: selectedStudentId,
       })
+      if (!response?.id) {
+        throw new Error('PayPal returned an invalid order')
+      }
       return response.id
     } catch (err: any) {
       console.error(err)
-      setError(err.message)
+      Sentry.captureException(err, {
+        tags: { context: 'paypal.createOrder' },
+        extra: {
+          productId: selectedProductId,
+          scheduleId: selectedScheduleId,
+          studentId: selectedStudentId,
+        },
+      })
+      setError(err?.message || 'We could not start your PayPal order. Please try again.')
+      throw err
     }
   }
 
   const paypalCaptureOrder = async (orderId: string): Promise<void> => {
     try {
       await PaymentService.captureOrder({ orderId })
+      setPaymentCompleted(true)
     } catch (err: any) {
       console.error(err)
-      setError(err.message)
+      Sentry.captureException(err, {
+        tags: { context: 'paypal.captureOrder' },
+        extra: { orderId },
+      })
+      setError(
+        err?.message ||
+          'Your payment was authorized but we could not finalize it. Please contact us before retrying.'
+      )
     }
-    setPaymentCompleted(true)
   }
 
   const joinWaitlist = async () => {
-    await WaitlistService.join()
-    setOnWaitlist(true)
+    try {
+      await WaitlistService.join()
+      setOnWaitlist(true)
+    } catch (err: any) {
+      console.error(err)
+      Sentry.captureException(err, { tags: { context: 'waitlist.join' } })
+      setError(err?.message || 'We could not add you to the waitlist. Please try again.')
+    }
   }
 
   const handlePayWithApplePay = async () => {
@@ -174,6 +258,73 @@ export default function PurchaseClient({
       <div>
         <main className="px-6">
           <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+            {error && (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="mt-2 mb-4 flex items-start rounded-md border-l-4 border-red-400 bg-red-50 p-4"
+              >
+                <div className="shrink-0">
+                  <ExclamationTriangleIcon aria-hidden="true" className="size-5 text-red-400" />
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+                <button
+                  type="button"
+                  className="ml-3 inline-flex rounded-md bg-red-50 p-1.5 text-red-500 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 focus:ring-offset-red-50"
+                  onClick={() => setError(null)}
+                >
+                  <span className="sr-only">Dismiss</span>
+                  <XMarkIcon aria-hidden="true" className="size-5" />
+                </button>
+              </div>
+            )}
+            {userError && !error && (
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="mt-2 mb-4 flex items-start rounded-md border-l-4 border-red-400 bg-red-50 p-4"
+              >
+                <div className="shrink-0">
+                  <ExclamationTriangleIcon aria-hidden="true" className="size-5 text-red-400" />
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm text-red-700">
+                    We could not load your account. Please refresh the page. If the issue persists, contact support.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="ml-3 rounded-md bg-red-50 px-2 py-1 text-sm font-medium text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600"
+                  onClick={() => window.location.reload()}
+                >
+                  Refresh
+                </button>
+              </div>
+            )}
+            {userLoading && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="mt-2 mb-4 flex items-center rounded-md border border-gray-200 bg-white p-4"
+              >
+                <svg
+                  aria-hidden="true"
+                  className="size-5 animate-spin text-indigo-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+                  <path
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    className="opacity-75"
+                  />
+                </svg>
+                <p className="ml-3 text-sm text-gray-700">Loading your account…</p>
+              </div>
+            )}
             {waitlistEnabled && !purchaseEnabled && (
               <div className="mt-2 border-l-4 border-yellow-400 bg-yellow-50 p-4">
                 <div className="flex">
@@ -243,7 +394,7 @@ export default function PurchaseClient({
                       type="radio"
                       style={{ border: '1px solid #D1D5DB' }}
                       className="relative mt-0.5 size-4 shrink-0 appearance-none rounded-full border-[3px] border-gray-400 bg-white checked:bg-indigo-600 checked:border-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100"
-                      disabled={isMissingContactInfo || isPaying || !purchaseEnabled}
+                      disabled={inputsDisabled}
                     />
                     <div className="flex flex-col flex-1">
                       <span className="ml-3 flex flex-col">
@@ -261,19 +412,16 @@ export default function PurchaseClient({
                       </span>
                     </div>
                     {product.credits == 1 ? (
-                      <div>
-                        <label htmlFor="country" className="block text-sm/6 font-medium text-gray-900">
-                          Quantity
-                        </label>
+                      <div onClick={e => e.stopPropagation()}>
+                        <span className="block text-sm/6 font-medium text-gray-900">Quantity</span>
                         <div className="mt-2 grid grid-cols-1">
                           <select
-                            id="quantity"
+                            id={`quantity-${product.id}`}
                             name="quantity"
+                            aria-label="Quantity"
                             className="col-start-1 row-start-1 w-full appearance-none rounded-md bg-white py-1.5 pl-3 pr-8 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
                             onChange={e => setQuantity(parseInt(e.target.value))}
-                            disabled={
-                              isMissingContactInfo || isPaying || !purchaseEnabled || selectedProductId != product.id
-                            }
+                            disabled={inputsDisabled || selectedProductId != product.id}
                             value={quantity}
                           >
                             <option>1</option>
@@ -309,7 +457,7 @@ export default function PurchaseClient({
                       type="radio"
                       style={{ border: '1px solid #D1D5DB' }}
                       className="relative mt-0.5 size-4 shrink-0 appearance-none rounded-full border-[3px] border-gray-400 bg-white checked:bg-indigo-600 checked:border-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100"
-                      disabled={isMissingContactInfo || isPaying || !purchaseEnabled}
+                      disabled={inputsDisabled}
                     />
                     <div className="flex flex-col sm:flex-row w-full gap-2">
                       <div className="flex flex-col flex-1 w-full sm:w-auto ml-3">
@@ -327,19 +475,22 @@ export default function PurchaseClient({
                           </span>
                         </span>
                       </div>
-                      <div className="flex flex-col gap-2 w-full sm:w-auto">
-                        <label htmlFor="country" className="block text-sm/6 font-medium text-gray-900">
-                          Session
-                        </label>
+                      <div
+                        className="flex flex-col gap-2 w-full sm:w-auto"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <span className="block text-sm/6 font-medium text-gray-900">Session</span>
                         <div className="mt-2">
                           <select
-                            id="session"
+                            id={`session-${product.id}`}
                             name="session"
+                            aria-label="Session"
                             className="w-full appearance-none rounded-md bg-white py-1.5 pl-3 pr-8 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
                             onChange={e => setSelectedScheduleId(e.target.value)}
-                            disabled={isMissingContactInfo || isPaying || !purchaseEnabled}
+                            value={selectedScheduleId}
+                            disabled={inputsDisabled}
                           >
-                            <option>select a parent and tot session</option>
+                            <option value="">select a parent and tot session</option>
                             {schedules
                               .filter(s => s.spotsAvailable && s.spotsAvailable > 0)
                               .map(schedule => {
@@ -354,19 +505,22 @@ export default function PurchaseClient({
                           </select>
                         </div>
                       </div>
-                      <div className="flex flex-col gap-2 w-full sm:w-auto sm:px-4">
-                        <label htmlFor="country" className="block text-sm/6 font-medium text-gray-900">
-                          Student
-                        </label>
+                      <div
+                        className="flex flex-col gap-2 w-full sm:w-auto sm:px-4"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <span className="block text-sm/6 font-medium text-gray-900">Student</span>
                         <div className="mt-2">
                           <select
-                            id="student"
+                            id={`student-${product.id}`}
                             name="student"
+                            aria-label="Student"
                             className="w-full appearance-none rounded-md bg-white py-1.5 pl-3 pr-8 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
                             onChange={e => setSelectedStudentId(e.target.value)}
-                            disabled={isMissingContactInfo || isPaying || !purchaseEnabled}
+                            value={selectedStudentId}
+                            disabled={inputsDisabled}
                           >
-                            <option>select a student</option>
+                            <option value="">select a student</option>
                             {students.map(student => (
                               <option key={student.id} value={student.id}>
                                 {student.name}
@@ -432,6 +586,45 @@ export default function PurchaseClient({
                     </div>
                   )}
                 </div>
+                {isPaying && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="mb-3 flex w-full items-center justify-between rounded-md border border-indigo-200 bg-indigo-50 p-3"
+                  >
+                    <div className="flex items-center">
+                      <svg
+                        aria-hidden="true"
+                        className="size-5 animate-spin text-indigo-600"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+                        <path
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                          className="opacity-75"
+                        />
+                      </svg>
+                      <span className="ml-2 text-sm text-indigo-700">
+                        Payment in progress — finish in the PayPal window.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-indigo-700 underline hover:text-indigo-900"
+                      onClick={() => {
+                        finishPayment()
+                        setError('Payment cancelled. You can try again when ready.')
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+                {disabledReason && !isPaying && (
+                  <p className="mb-2 text-center text-xs text-gray-500">{disabledReason}</p>
+                )}
                 <PayPalScriptProvider
                   options={{
                     clientId: paypalClientId,
@@ -448,37 +641,39 @@ export default function PurchaseClient({
                       label: 'paypal',
                       height: 50,
                     }}
-                    createOrder={async (data, actions) => {
+                    createOrder={async () => {
                       setIsPaying(true)
-                      let order_id = await paypalCreateOrder()
-                      return order_id + ''
+                      startPaymentTimeout()
+                      try {
+                        return await paypalCreateOrder()
+                      } catch (err) {
+                        finishPayment()
+                        throw err
+                      }
                     }}
-                    onApprove={async (data, actions): Promise<void> => {
-                      await paypalCaptureOrder(data.orderID)
-                      setIsPaying(false)
+                    onApprove={async (data): Promise<void> => {
+                      try {
+                        await paypalCaptureOrder(data.orderID)
+                      } finally {
+                        finishPayment()
+                      }
                     }}
-                    onError={() => setIsPaying(false)}
-                    onCancel={() => setIsPaying(false)}
-                    disabled={
-                      selectedProductId == '' ||
-                      isMissingContactInfo ||
-                      isPaying ||
-                      !purchaseEnabled ||
-                      (() => {
-                        const product = products.find(p => p.id === selectedProductId)
-                        if (product?.lessonType === 'group') {
-                          return !selectedScheduleId || !selectedStudentId
-                        }
-                        return false
-                      })()
-                    }
+                    onError={err => {
+                      Sentry.captureException(err, { tags: { context: 'paypal.onError' } })
+                      setError(
+                        'Something went wrong with PayPal. Please try again, or refresh the page if the issue persists.'
+                      )
+                      finishPayment()
+                    }}
+                    onCancel={() => finishPayment()}
+                    disabled={isPayPalDisabled}
                   />
                 </PayPalScriptProvider>
                 {canUseApplePay ? (
                   <button
                     type="submit"
                     style={{ backgroundColor: 'black', maxHeight: '50px' }}
-                    disabled={selectedProductId == '' || isMissingContactInfo || isPaying || !purchaseEnabled}
+                    disabled={isPayPalDisabled}
                     onClick={handlePayWithApplePay}
                     className="mt-4 w-full"
                   >
@@ -491,30 +686,6 @@ export default function PurchaseClient({
                   </button>
                 ) : null}
               </div>
-              {error ? (
-                <div className="mt-10 border-l-4 border-yellow-400 bg-yellow-50 p-4">
-                  <div className="flex">
-                    <div className="shrink-0">
-                      <ExclamationTriangleIcon aria-hidden="true" className="size-5 text-yellow-400" />
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-yellow-700">{error}</p>
-                    </div>
-                    <div className="ml-auto pl-3">
-                      <div className="-mx-1.5 -my-1.5">
-                        <button
-                          type="button"
-                          className="inline-flex rounded-md bg-yellow-50 p-1.5 text-yellow-500 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-yellow-600 focus:ring-offset-2 focus:ring-offset-yellow-50"
-                          onClick={() => setError('')}
-                        >
-                          <span className="sr-only">Dismiss</span>
-                          <XMarkIcon aria-hidden="true" className="size-5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
               {paymentCompleted ? (
                 <div className="mt-10 rounded-md bg-green-50 p-4">
                   <div className="flex">

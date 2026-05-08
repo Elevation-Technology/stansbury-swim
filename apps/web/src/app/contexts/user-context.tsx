@@ -1,5 +1,6 @@
 'use client'
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { UserResponseDto, ApiError, AuthenticationService } from '@/api'
 import { MeService } from '@/services/api/shared/meService'
 import { jwtDecode } from 'jwt-decode'
@@ -22,6 +23,8 @@ interface Impersonator {
 
 export interface UserContextType {
   user: UserResponseDto | null
+  isLoading: boolean
+  error: Error | null
   refreshUser: () => void
   isImpersonating: boolean
   impersonator: Impersonator | null
@@ -36,6 +39,8 @@ interface UserProviderProps {
 
 export const UserProvider = ({ children }: UserProviderProps) => {
   const [user, setUser] = useState<UserResponseDto | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
   const [isImpersonating, setIsImpersonating] = useState(false)
   const [impersonator, setImpersonator] = useState<Impersonator | null>(null)
   const pathname = usePathname()
@@ -44,6 +49,8 @@ export const UserProvider = ({ children }: UserProviderProps) => {
   const isPublicPath = PUBLIC_PATHS.includes(normalizedPath)
 
   const fetchUserDetails = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
     try {
       const user = localStorage.getItem('user')
       const token = user ? JSON.parse(user).accessToken : null
@@ -74,11 +81,13 @@ export const UserProvider = ({ children }: UserProviderProps) => {
       if (response) {
         setUser(response)
       } else {
-        console.error('Failed to fetch user details')
+        const err = new Error('Failed to fetch user details (empty response)')
+        console.error(err.message)
+        Sentry.captureException(err, { tags: { context: 'user-context.fetchUserDetails' } })
         setUser(null)
+        setError(err)
       }
     } catch (error) {
-      console.log(JSON.stringify(error))
       if (error instanceof ApiError && error.status === 401) {
         console.error('User is not authenticated')
         setUser(null)
@@ -88,7 +97,13 @@ export const UserProvider = ({ children }: UserProviderProps) => {
         }
       } else {
         console.error('Error fetching user details:', error)
+        // Non-401 fetch failures previously failed silently and left the
+        // dashboard in a permanently-disabled state with no surfaced reason.
+        Sentry.captureException(error, { tags: { context: 'user-context.fetchUserDetails' } })
+        setError(error instanceof Error ? error : new Error(String(error)))
       }
+    } finally {
+      setIsLoading(false)
     }
   }, [isPublicPath])
 
@@ -107,12 +122,21 @@ export const UserProvider = ({ children }: UserProviderProps) => {
       window.location.href = '/dashboard'
     } catch (error) {
       console.error('Error exiting impersonation:', error)
+      Sentry.captureException(error, { tags: { context: 'user-context.exitImpersonation' } })
     }
   }
 
   return (
     <UserContext.Provider
-      value={{ user, refreshUser: fetchUserDetails, isImpersonating, impersonator, exitImpersonation }}
+      value={{
+        user,
+        isLoading,
+        error,
+        refreshUser: fetchUserDetails,
+        isImpersonating,
+        impersonator,
+        exitImpersonation,
+      }}
     >
       {children}
     </UserContext.Provider>
