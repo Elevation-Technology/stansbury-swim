@@ -22,7 +22,7 @@ export class PoolEntity extends Document {
   @Prop({ required: true })
   imageUrl: string
 
-  @Prop({ required: true })
+  @Prop({ required: false, default: '' })
   instructions: string
 }
 
