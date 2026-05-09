@@ -41,7 +41,7 @@ export default function ResetPasswordForm() {
         router.push('/sign-in')
       }, 2000)
     } catch (err: any) {
-      setError(err.message)
+      setError(err?.body?.message || err?.message || 'Failed to reset password')
     }
   }
 

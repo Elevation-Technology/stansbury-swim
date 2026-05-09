@@ -39,7 +39,7 @@ export default function LoginForm() {
       }
       router.push('/dashboard')
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in')
+      setError(err?.body?.message || err?.message || 'Failed to sign in')
     } finally {
       setIsLoading(false)
     }
