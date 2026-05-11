@@ -175,10 +175,11 @@ export class EmailService {
         { label: 'Where', value: pool.name },
         { label: 'Instructor', value: instructor.name },
       ])}
-      <p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#374151;"><strong style="color:#142e55;">Pool entry:</strong> 103 Lakeview &mdash; enter pool area through the gate to the right of the garage. 180 Durfee &mdash; walk down driveway and enter pool area between the two garages. Text or call Sarah with any questions: <a href="tel:+14356596307" style="color:#428BCA;">435-659-6307</a>.</p>
       <p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#374151;">We are unable to cancel, refund, or reschedule a lesson within 24 hours of lesson time. You are welcome to send a replacement student if the scheduled student is unavailable.</p>
-      ${this.renderSignoff()}
-      ${this.renderPoliciesList(true)}
+      ${this.renderPoliciesList(
+        true,
+        `<p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#374151;">Text or call Sarah with any questions: <a href="tel:+14356596307" style="color:#428BCA;">435-659-6307</a>.</p>`,
+      )}
       ${this.renderSignoff()}`,
     )
 
@@ -346,7 +347,7 @@ export class EmailService {
     return `<p style="margin:24px 0 0 0;font-size:15px;line-height:1.6;color:#374151;">See you soon!<br>The Stansbury Swim Team</p>`
   }
 
-  private renderPoliciesList(includePoolAddresses: boolean): string {
+  private renderPoliciesList(includePoolAddresses: boolean, extraAfterPools?: string): string {
     const h2 = 'style="margin:32px 0 12px 0;font-size:18px;line-height:1.3;color:#142e55;font-weight:600;"'
     const p = 'style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#374151;"'
     const li = 'style="margin-bottom:8px;"'
@@ -360,6 +361,7 @@ export class EmailService {
       : ''
 
     return `${ourPools}
+    ${extraAfterPools ?? ''}
     <h2 ${h2}>Policies and Tips</h2>
     <p ${p}>To show respect to all our pool owners and other clients, please follow these requests:</p>
     <ul style="margin:0 0 16px 0;padding:0 0 0 20px;font-size:14px;line-height:1.6;color:#374151;">
