@@ -121,11 +121,16 @@ export default function PurchaseClient({
   const inputsDisabled = isMissingContactInfo || isPaying || !purchaseEnabled || userLoading
   const isPayPalDisabled = inputsDisabled || selectedProductId === '' || isMissingGroupSelections
 
+  // Always falls back to something user-readable so we never end up in a
+  // silently-disabled state again.
   const disabledReason = (() => {
     if (userLoading) return 'Loading your account…'
     if (userError) return 'We could not load your account. Please refresh the page.'
-    if (!purchaseEnabled) return null // banner above already explains
-    if (isMissingContactInfo) return null // banner above already explains
+    if (isMissingContactInfo) return null // dedicated banner above explains
+    if (!purchaseEnabled) {
+      if (waitlistEnabled) return null // waitlist banner above explains
+      return 'Purchases are currently unavailable for your account. Please contact support.'
+    }
     if (isPaying) return 'Payment in progress…'
     if (selectedProductId === '') return 'Select a product to continue.'
     if (isMissingGroupSelections) return 'Select a session and a student to continue.'

@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Inject, forwardRef } from '@nestjs/common'
 import { Model, Types } from 'mongoose'
 import { InjectModel } from '@nestjs/mongoose'
 import { SiteConfig } from './site-config'
 import { SiteConfigEntity } from './entities/site-config.entity'
+import { WaitlistService } from 'waitlist/waitlist.service'
 
 const mapper = (entity: SiteConfigEntity): SiteConfig => {
   return {
@@ -16,9 +17,12 @@ export class SiteConfigService {
   constructor(
     @InjectModel(SiteConfigEntity.name)
     private readonly model: Model<SiteConfigEntity>,
+    @Inject(forwardRef(() => WaitlistService))
+    private readonly waitlistService: WaitlistService,
   ) {}
   async toggleWaitlist(): Promise<SiteConfig> {
     let entity = await this.model.findOne()
+    const wasEnabled = entity?.waitlistEnabled === true
 
     if (entity == null) {
       const _id = new Types.ObjectId()
@@ -40,6 +44,13 @@ export class SiteConfigService {
     if (!entity) {
       throw new Error('Config not found')
     }
+
+    // Closing a season: archive every active waitlist record so stale entries
+    // can't silently block users next time the waitlist is enabled.
+    if (wasEnabled && !entity.waitlistEnabled) {
+      await this.waitlistService.bulkArchiveBefore(new Date())
+    }
+
     return mapper(entity)
   }
 

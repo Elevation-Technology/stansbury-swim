@@ -19,14 +19,14 @@ export default async function PurchasePage() {
     PoolService.findAll(),
   ])
 
-  let purchaseEnabled = !config.waitlistEnabled
-
-  if (waitlist && !waitlist.allowed) {
-    purchaseEnabled = false
-  }
-  if (config.waitlistEnabled && waitlist && waitlist.allowed) {
-    purchaseEnabled = true
-  }
+  // `config.waitlistEnabled` is the authoritative gate. The previous logic
+  // applied `!waitlist.allowed` unconditionally, which meant a stale waitlist
+  // record from a prior season (when waitlistEnabled was on) would silently
+  // disable purchasing even after the admin turned the waitlist off — and
+  // without firing the waitlist banner, since that banner only renders when
+  // waitlistEnabled is true. Treat the record as relevant ONLY while gating
+  // is active.
+  const purchaseEnabled = config.waitlistEnabled ? !!(waitlist && waitlist.allowed) : true
 
   return (
     <PurchaseClient

@@ -67,7 +67,10 @@ export class WaitlistService {
   }
 
   async findByUserId(userId: string): Promise<Waitlist> {
-    const waitlist = await this.model.findOne({ userId: new Types.ObjectId(userId) })
+    const waitlist = await this.model.findOne({
+      userId: new Types.ObjectId(userId),
+      archivedAt: { $exists: false },
+    })
     if (!waitlist) {
       throw new NotFoundException('Waitlist not found')
     }
@@ -79,19 +82,20 @@ export class WaitlistService {
   }
 
   async allowPurchase(userId: string): Promise<Waitlist> {
-    const existing = await this.model.findOne({ userId: new Types.ObjectId(userId) })
+    const activeFilter = {
+      userId: new Types.ObjectId(userId),
+      archivedAt: { $exists: false },
+    }
+    const existing = await this.model.findOne(activeFilter)
     const wasAlreadyAllowed = existing?.allowed === true
 
-    await this.model.updateOne(
-      { userId: new Types.ObjectId(userId) },
-      {
-        $set: {
-          allowed: true,
-          allowedOn: new Date(),
-        },
+    await this.model.updateOne(activeFilter, {
+      $set: {
+        allowed: true,
+        allowedOn: new Date(),
       },
-    )
-    const entity = await this.model.findOne({ userId: new Types.ObjectId(userId) })
+    })
+    const entity = await this.model.findOne(activeFilter)
     if (!entity) {
       throw new BadRequestException('User is not allowed to purchase. Not on waitlist.')
     }

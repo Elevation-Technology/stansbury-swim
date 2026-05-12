@@ -13,7 +13,7 @@ import { UserModule } from 'user/user.module'
 @Module({
   imports: [
     CqrsModule,
-    SiteConfigModule,
+    forwardRef(() => SiteConfigModule),
     forwardRef(() => UserModule),
     MongooseModule.forFeature([{ name: WaitlistEntity.name, schema: WaitlistSchema }]),
   ],
