@@ -32,6 +32,12 @@ export class ProductEntity extends Document {
   @Prop({ required: true })
   description: string
 
+  // Links a GROUP product to the specific schedule (session) it sells. When set,
+  // it is the source of truth for which session a purchase registers against, so
+  // the storefront can scope the session picker and the API can reject mismatches.
+  @Prop({ type: Types.ObjectId, required: false })
+  scheduleId?: Types.ObjectId
+
   @Prop({ type: [String], required: false })
   features: string[]
 }

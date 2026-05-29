@@ -26,6 +26,13 @@ export class ProductResponseDto {
   @ApiProperty({ example: 'Description of the product', description: 'Product description' })
   description: string
 
+  @ApiProperty({
+    example: 'scheduleId123',
+    required: false,
+    description: 'Group schedule (session) this product sells, if linked',
+  })
+  scheduleId?: string
+
   @ApiProperty({ type: [String], description: 'List of product features' })
   features: string[]
 }

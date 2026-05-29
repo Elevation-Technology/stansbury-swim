@@ -2930,6 +2930,11 @@
             "example": "Description of the product",
             "description": "Product description"
           },
+          "scheduleId": {
+            "type": "string",
+            "example": "scheduleId123",
+            "description": "Group schedule (session) this product sells, if linked"
+          },
           "features": {
             "description": "List of product features",
             "type": "array",

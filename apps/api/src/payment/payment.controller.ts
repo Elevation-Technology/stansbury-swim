@@ -21,10 +21,12 @@ import { PaymentGatewayTypesEnum } from 'shared/payment-gateway-types.enum'
 import { PaymentStatusTypesEnum } from 'shared/payment-status-types.enum'
 import { Roles } from 'iam/authentication/decorators/roles.decorator'
 import { Role } from '@lesson-scheduler/shared'
+import { LessonTypesEnum } from 'shared/lesson-types.enum'
 import { ApiTags, ApiOperation, ApiOkResponse, ApiBody, ApiParam } from '@nestjs/swagger'
 import { PaymentResponseDto } from './dto/payment-response.dto'
 import { ScheduleService } from 'schedule/schedule.service'
 import { RegistrationService } from 'schedule/registration.service'
+import { ProductService } from 'product/product.service'
 
 @ApiTags('payments')
 @Controller('payments')
@@ -35,6 +37,7 @@ export class PaymentController {
     private readonly userService: UserService,
     private readonly scheduleService: ScheduleService,
     private readonly registrationService: RegistrationService,
+    private readonly productService: ProductService,
   ) {}
 
   @Get('')
@@ -50,19 +53,43 @@ export class PaymentController {
   @ApiBody({ type: CreatePaypalOrderDto })
   async createPaypalOrder(@Body() createPaypalOrder: CreatePaypalOrderDto, @ActiveUser() userdata: ActiveUserData) {
     const user = await this.userService.findOne(userdata.sub)
-    const order = await this.paypalService.createOrder(createPaypalOrder.productId, createPaypalOrder.quantity, user)
+    const product = await this.productService.findOne(createPaypalOrder.productId)
 
-    if (createPaypalOrder.scheduleId) {
-      const schedule = await this.scheduleService.findOne(createPaypalOrder.scheduleId)
-      const registrations = await this.registrationService.findAll(createPaypalOrder.scheduleId)
+    // Resolve which session this purchase registers against, and validate it BEFORE
+    // creating a PayPal order so a bad request never leaves an orphaned order behind.
+    let scheduleId = createPaypalOrder.scheduleId
+    if (product.lessonType === LessonTypesEnum.GROUP) {
+      // A product linked to a specific schedule is authoritative — never trust a
+      // client-supplied id that disagrees with it.
+      if (product.scheduleId) {
+        if (scheduleId && scheduleId !== product.scheduleId) {
+          throw new BadRequestException('The selected session does not match this class.')
+        }
+        scheduleId = product.scheduleId
+      }
+      if (!scheduleId) {
+        throw new BadRequestException('This class has no available session. Please contact us.')
+      }
+      if (!createPaypalOrder.studentId) {
+        throw new BadRequestException('Please select a student.')
+      }
+      // Group sessions are a single seat per purchase; multi-quantity can't register.
+      if (createPaypalOrder.quantity > 1) {
+        throw new BadRequestException('Only one spot can be purchased per session.')
+      }
+    }
+
+    if (scheduleId) {
+      const schedule = await this.scheduleService.findOne(scheduleId)
+      const registrations = await this.registrationService.findAll(scheduleId)
       const classSize = registrations.length + createPaypalOrder.quantity
       if (schedule.classSize && classSize > schedule.classSize) {
         throw new BadRequestException('Schedule is full')
       }
     }
 
-    // If group, check if the schedule is full
-    // If group, fail if the quantity is more than 1
+    const order = await this.paypalService.createOrder(createPaypalOrder.productId, createPaypalOrder.quantity, user)
+
     await this.paymentService.create({
       productId: createPaypalOrder.productId,
       quantity: createPaypalOrder.quantity,
@@ -70,7 +97,7 @@ export class PaymentController {
       paymentGateway: PaymentGatewayTypesEnum.PAYPAL,
       paymentGatewayId: order.id,
       status: PaymentStatusTypesEnum.PENDING,
-      scheduleId: createPaypalOrder.scheduleId,
+      scheduleId,
       studentId: createPaypalOrder.studentId,
     })
     return {

@@ -36,6 +36,10 @@ export type ProductResponseDto = {
      */
     description: string;
     /**
+     * Group schedule (session) this product sells, if linked
+     */
+    scheduleId?: string;
+    /**
      * List of product features
      */
     features: Array<string>;

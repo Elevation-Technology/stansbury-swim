@@ -118,6 +118,31 @@ export default function PurchaseClient({
   const isGroupProduct = selectedProduct?.lessonType === 'group'
   const isMissingGroupSelections = isGroupProduct && (!selectedScheduleId || !selectedStudentId)
 
+  // Resolve the bookable sessions for a group product. A product linked to a
+  // specific schedule shows only that session; unlinked (legacy) products fall
+  // back to the full parent-tot list so they keep working. Full/past sessions are
+  // filtered out either way — this is what prevents the silently-empty dropdown.
+  const availableSchedulesFor = (product: ProductResponseDto) => {
+    const scoped = product.scheduleId ? schedules.filter(s => s.id === product.scheduleId) : schedules
+    return scoped.filter(s => s.spotsAvailable && s.spotsAvailable > 0)
+  }
+
+  const noSessionsForSelected = isGroupProduct && availableSchedulesFor(selectedProduct!).length === 0
+
+  // Auto-select the only option (and clear a stale selection carried over from a
+  // previously-selected product) so the user never has to fight an empty/mismatched
+  // session dropdown.
+  useEffect(() => {
+    if (!selectedProduct || selectedProduct.lessonType !== 'group') return
+    const avail = availableSchedulesFor(selectedProduct)
+    if (avail.length === 1) {
+      setSelectedScheduleId(avail[0].id)
+    } else if (!avail.some(s => s.id === selectedScheduleId)) {
+      setSelectedScheduleId('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProductId])
+
   const inputsDisabled = isMissingContactInfo || isPaying || !purchaseEnabled || userLoading
   const isPayPalDisabled = inputsDisabled || selectedProductId === '' || isMissingGroupSelections
 
@@ -133,6 +158,7 @@ export default function PurchaseClient({
     }
     if (isPaying) return 'Payment in progress…'
     if (selectedProductId === '') return 'Select a product to continue.'
+    if (noSessionsForSelected) return 'No sessions are currently available for this class. Please contact us.'
     if (isMissingGroupSelections) return 'Select a session and a student to continue.'
     return null
   })()
@@ -447,6 +473,7 @@ export default function PurchaseClient({
                 })}
                 {groupLessons.map(product => {
                   const { badge, rest } = splitDescription(product.description)
+                  const productSchedules = availableSchedulesFor(product)
                   return (
                   <label
                     key={product.id}
@@ -486,19 +513,22 @@ export default function PurchaseClient({
                       >
                         <span className="block text-sm/6 font-medium text-gray-900">Session</span>
                         <div className="mt-2">
-                          <select
-                            id={`session-${product.id}`}
-                            name="session"
-                            aria-label="Session"
-                            className="w-full appearance-none rounded-md bg-white py-1.5 pl-3 pr-8 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                            onChange={e => setSelectedScheduleId(e.target.value)}
-                            value={selectedScheduleId}
-                            disabled={inputsDisabled}
-                          >
-                            <option value="">select a parent and tot session</option>
-                            {schedules
-                              .filter(s => s.spotsAvailable && s.spotsAvailable > 0)
-                              .map(schedule => {
+                          {productSchedules.length === 0 ? (
+                            <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                              No sessions are currently available for this class. Please contact us.
+                            </p>
+                          ) : (
+                            <select
+                              id={`session-${product.id}`}
+                              name="session"
+                              aria-label="Session"
+                              className="w-full appearance-none rounded-md bg-white py-1.5 pl-3 pr-8 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                              onChange={e => setSelectedScheduleId(e.target.value)}
+                              value={selectedScheduleId}
+                              disabled={inputsDisabled}
+                            >
+                              <option value="">select a parent and tot session</option>
+                              {productSchedules.map(schedule => {
                                 const pool = pools.find(pool => pool.id === schedule.poolId)?.name
                                 const formatted = formatDateTime(schedule.startDateTime)
                                 return (
@@ -507,7 +537,8 @@ export default function PurchaseClient({
                                   </option>
                                 )
                               })}
-                          </select>
+                            </select>
+                          )}
                         </div>
                       </div>
                       <div

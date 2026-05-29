@@ -21,7 +21,7 @@ const mapper = (entity: ScheduleEntity): Schedule => {
     lessonType: entity.lessonType,
     startDateTime: entity.startDateTime,
     endDateTime: entity.endDateTime,
-    registrations: entity.registrations.map(registration => ({
+    registrations: (entity.registrations ?? []).map(registration => ({
       userId: registration.userId.toString(),
       studentId: registration.studentId.toString(),
       createdAt: registration.createdAt,

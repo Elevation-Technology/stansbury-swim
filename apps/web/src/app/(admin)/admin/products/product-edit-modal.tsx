@@ -4,8 +4,11 @@ import { useState, useEffect } from 'react'
 import { Dialog, DialogTitle, DialogPanel } from '@headlessui/react'
 import { Button } from '@components/button'
 import { Input } from '@components/input'
+import { Select } from '@components/select'
 import { ProductService } from '@/services/api/shared/productService'
-import { ProductResponseDto } from '@/api'
+import { ScheduleService } from '@/services/api/shared/scheduleService'
+import { ProductResponseDto, ParentTotScheduleResponseDto } from '@/api'
+import { formatDateTime } from '@/app/utils/dates'
 
 interface ProductEditModalProps {
   isOpen: boolean
@@ -21,11 +24,15 @@ export default function ProductEditModal({ isOpen, onClose, onSuccess, product }
     amount: product.amount,
     credits: product.credits,
     features: product.features,
+    scheduleId: product.scheduleId ?? '',
   })
+  const [schedules, setSchedules] = useState<ParentTotScheduleResponseDto[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+
+  const isGroup = product.lessonType === ProductResponseDto.lessonType.GROUP
 
   useEffect(() => {
     setFormData({
@@ -34,14 +41,29 @@ export default function ProductEditModal({ isOpen, onClose, onSuccess, product }
       amount: product.amount,
       credits: product.credits,
       features: product.features,
+      scheduleId: product.scheduleId ?? '',
     })
   }, [product])
 
+  // Load group sessions so a group product's session link can be reviewed/changed.
+  // A linked session is what lets shoppers actually select and pay for the class.
+  useEffect(() => {
+    if (!isOpen || !isGroup) return
+    ScheduleService.findParentTot()
+      .then(setSchedules)
+      .catch(() => setSchedules([]))
+  }, [isOpen, isGroup])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
     setError(null)
 
+    if (isGroup && !formData.scheduleId) {
+      setError('Group products must stay linked to a session. Select the session this product sells.')
+      return
+    }
+
+    setIsSubmitting(true)
     try {
       await ProductService.update(product.id, {
         id: product.id,
@@ -49,6 +71,7 @@ export default function ProductEditModal({ isOpen, onClose, onSuccess, product }
         description: formData.description,
         amount: formData.amount,
         credits: formData.credits,
+        scheduleId: isGroup ? formData.scheduleId : undefined,
       })
       onSuccess()
       onClose()
@@ -60,7 +83,9 @@ export default function ProductEditModal({ isOpen, onClose, onSuccess, product }
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
   }
@@ -118,6 +143,33 @@ export default function ProductEditModal({ isOpen, onClose, onSuccess, product }
                   placeholder="Product Amount"
                 />
               </div>
+              {isGroup && (
+                <div>
+                  <label htmlFor="scheduleId" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Session
+                  </label>
+                  <Select
+                    id="scheduleId"
+                    name="scheduleId"
+                    value={formData.scheduleId}
+                    onChange={handleChange}
+                    required
+                    className="mt-1"
+                  >
+                    <option value="">Select a session…</option>
+                    {/* Keep the currently-linked session selectable even if it's full or in
+                        the past (findParentTot only returns future sessions with open spots). */}
+                    {product.scheduleId && !schedules.some(s => s.id === product.scheduleId) && (
+                      <option value={product.scheduleId}>Currently linked session</option>
+                    )}
+                    {schedules.map(schedule => (
+                      <option key={schedule.id} value={schedule.id}>
+                        {formatDateTime(schedule.startDateTime)} — {schedule.spotsAvailable} open
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              )}
               {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
               <div className="mt-6 flex justify-end gap-x-3">
                 <Button onClick={onClose} plain>

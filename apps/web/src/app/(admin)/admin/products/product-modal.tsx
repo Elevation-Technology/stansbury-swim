@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogTitle, DialogPanel } from '@headlessui/react'
 import { Button } from '@components/button'
 import { Input } from '@components/input'
+import { Select } from '@components/select'
 import { ProductService } from '@/services/api/shared/productService'
-import { CreateProductDto } from '@/api'
+import { ScheduleService } from '@/services/api/shared/scheduleService'
+import { CreateProductDto, ParentTotScheduleResponseDto } from '@/api'
+import { formatDateTime } from '@/app/utils/dates'
 
 interface ProductModalProps {
   isOpen: boolean
@@ -21,15 +24,36 @@ export default function ProductModal({ isOpen, onClose, onSuccess }: ProductModa
     credits: 0,
     order: 0,
     lessonType: CreateProductDto.lessonType.PRIVATE,
+    scheduleId: '',
   })
+  const [schedules, setSchedules] = useState<ParentTotScheduleResponseDto[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const isGroup = formData.lessonType === CreateProductDto.lessonType.GROUP
+
+  // Load the available group sessions so the admin can link this product to one.
+  // Without a link, a group product renders an unselectable session dropdown for
+  // shoppers — the exact failure this picker prevents.
+  useEffect(() => {
+    if (!isOpen) return
+    ScheduleService.findParentTot()
+      .then(setSchedules)
+      .catch(() => setSchedules([]))
+  }, [isOpen])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
     setError(null)
 
+    if (isGroup && !formData.scheduleId) {
+      setError(
+        'Group products must be linked to a session. Create the session in the Schedule Builder first, then select it here.',
+      )
+      return
+    }
+
+    setIsSubmitting(true)
     try {
       await ProductService.create({
         name: formData.name,
@@ -38,6 +62,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess }: ProductModa
         credits: formData.credits,
         order: formData.order,
         lessonType: formData.lessonType,
+        scheduleId: isGroup ? formData.scheduleId : undefined,
         active: true,
         features: ['Personal Instructor', 'Warm Waters', 'Flexible Scheduling'],
       })
@@ -51,7 +76,9 @@ export default function ProductModal({ isOpen, onClose, onSuccess }: ProductModa
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
   }
@@ -128,17 +155,45 @@ export default function ProductModal({ isOpen, onClose, onSuccess }: ProductModa
                 <label htmlFor="lessonType" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                   Lesson Type
                 </label>
-                <Input
-                  type="text"
+                <Select
                   id="lessonType"
                   name="lessonType"
                   value={formData.lessonType}
                   onChange={handleChange}
                   required
                   className="mt-1"
-                  placeholder="Product Lesson Type"
-                />
+                >
+                  <option value={CreateProductDto.lessonType.PRIVATE}>Private</option>
+                  <option value={CreateProductDto.lessonType.GROUP}>Group (Parent &amp; Tot)</option>
+                </Select>
               </div>
+              {isGroup && (
+                <div>
+                  <label htmlFor="scheduleId" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Session
+                  </label>
+                  <Select
+                    id="scheduleId"
+                    name="scheduleId"
+                    value={formData.scheduleId}
+                    onChange={handleChange}
+                    required
+                    className="mt-1"
+                  >
+                    <option value="">Select a session…</option>
+                    {schedules.map(schedule => (
+                      <option key={schedule.id} value={schedule.id}>
+                        {formatDateTime(schedule.startDateTime)} — {schedule.spotsAvailable} open
+                      </option>
+                    ))}
+                  </Select>
+                  {schedules.length === 0 && (
+                    <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">
+                      No upcoming group sessions found. Create one in the Schedule Builder first.
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <label htmlFor="order" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                   Order
