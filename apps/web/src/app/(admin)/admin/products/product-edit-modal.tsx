@@ -10,6 +10,13 @@ import { ScheduleService } from '@/services/api/shared/scheduleService'
 import { ProductResponseDto, ParentTotScheduleResponseDto } from '@/api'
 import { formatDateTime } from '@/app/utils/dates'
 
+// Picker only offers valid (future) group sessions — the same set shoppers can
+// book. Old/expired sessions are filtered out server-side. Full sessions are still
+// shown (admin may want to link one) but flagged.
+const sessionLabel = (s: ParentTotScheduleResponseDto) => {
+  return `${formatDateTime(s.startDateTime)} — ${s.spotsAvailable} open${s.spotsAvailable <= 0 ? ' (full)' : ''}`
+}
+
 interface ProductEditModalProps {
   isOpen: boolean
   onClose: () => void
@@ -45,7 +52,7 @@ export default function ProductEditModal({ isOpen, onClose, onSuccess, product }
     })
   }, [product])
 
-  // Load group sessions so a group product's session link can be reviewed/changed.
+  // Load every group session so a product's session link can be reviewed/changed.
   // A linked session is what lets shoppers actually select and pay for the class.
   useEffect(() => {
     if (!isOpen || !isGroup) return
@@ -157,14 +164,14 @@ export default function ProductEditModal({ isOpen, onClose, onSuccess, product }
                     className="mt-1"
                   >
                     <option value="">Select a session…</option>
-                    {/* Keep the currently-linked session selectable even if it's full or in
-                        the past (findParentTot only returns future sessions with open spots). */}
+                    {/* Keep the currently-linked session selectable even if it was
+                        deleted/canceled and no longer appears in the list. */}
                     {product.scheduleId && !schedules.some(s => s.id === product.scheduleId) && (
-                      <option value={product.scheduleId}>Currently linked session</option>
+                      <option value={product.scheduleId}>Currently linked session (no longer in schedule)</option>
                     )}
                     {schedules.map(schedule => (
                       <option key={schedule.id} value={schedule.id}>
-                        {formatDateTime(schedule.startDateTime)} — {schedule.spotsAvailable} open
+                        {sessionLabel(schedule)}
                       </option>
                     ))}
                   </Select>

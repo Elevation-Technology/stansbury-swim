@@ -10,6 +10,13 @@ import { ScheduleService } from '@/services/api/shared/scheduleService'
 import { CreateProductDto, ParentTotScheduleResponseDto } from '@/api'
 import { formatDateTime } from '@/app/utils/dates'
 
+// Picker only offers valid (future) group sessions — the same set shoppers can
+// book. Old/expired sessions are filtered out server-side. Full sessions are still
+// shown (admin may want to link one) but flagged.
+const sessionLabel = (s: ParentTotScheduleResponseDto) => {
+  return `${formatDateTime(s.startDateTime)} — ${s.spotsAvailable} open${s.spotsAvailable <= 0 ? ' (full)' : ''}`
+}
+
 interface ProductModalProps {
   isOpen: boolean
   onClose: () => void
@@ -32,9 +39,9 @@ export default function ProductModal({ isOpen, onClose, onSuccess }: ProductModa
 
   const isGroup = formData.lessonType === CreateProductDto.lessonType.GROUP
 
-  // Load the available group sessions so the admin can link this product to one.
-  // Without a link, a group product renders an unselectable session dropdown for
-  // shoppers — the exact failure this picker prevents.
+  // Load every group session so the admin can link this product to one. Without a
+  // link, a group product renders an unselectable session dropdown for shoppers —
+  // the exact failure this picker prevents.
   useEffect(() => {
     if (!isOpen) return
     ScheduleService.findParentTot()
@@ -183,7 +190,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess }: ProductModa
                     <option value="">Select a session…</option>
                     {schedules.map(schedule => (
                       <option key={schedule.id} value={schedule.id}>
-                        {formatDateTime(schedule.startDateTime)} — {schedule.spotsAvailable} open
+                        {sessionLabel(schedule)}
                       </option>
                     ))}
                   </Select>
