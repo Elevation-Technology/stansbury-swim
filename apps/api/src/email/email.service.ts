@@ -12,6 +12,8 @@ import { PoolService } from 'pool/pool.service'
 import { InstructorService } from 'instructor/instructor.service'
 
 const FROM_ADDRESS = 'Stansbury Swim <no-reply@stansburyswim.com>'
+// Where post-payment failure alerts go so a charged-but-unseated client gets caught.
+const ADMIN_ALERT_ADDRESS = 'admin@elevation.tech'
 const LOGO_URL = 'https://stansburyswim.com/images/logo.png'
 const SITE_URL = 'https://stansburyswim.com'
 const DASHBOARD_URL = 'https://stansburyswim.com/dashboard'
@@ -245,6 +247,62 @@ export class EmailService {
       to: user.email,
       from: FROM_ADDRESS,
       subject: corrected ? 'Lesson Reminder (Corrected)' : 'Lesson Reminder',
+      html,
+    })
+  }
+
+  public async sendReservationFailedAdminAlert(params: {
+    user: User | null
+    student: Student | null
+    schedule: Schedule | null
+    userId: string
+    studentId: string
+    scheduleId: string
+    transactionId: string
+    reason: string
+    classFull: boolean
+  }): Promise<void> {
+    const { user, student, schedule, reason, classFull } = params
+
+    const when = schedule?.startDateTime
+      ? formatInTimeZone(schedule.startDateTime, 'America/Denver', 'MM/dd/yyyy hh:mm a')
+      : 'Unknown'
+    const clientName = user ? `${user.firstName} ${user.lastName}` : params.userId
+    const clientEmail = user?.email ?? 'Unknown'
+    const studentName = student?.name ?? params.studentId
+    const action = classFull
+      ? 'The class was already FULL. This customer needs a refund or to be moved to another session.'
+      : 'A spot may still be open. Review and manually assign this customer to the schedule.'
+
+    this.logger.error(
+      `Reservation failed after payment — alerting admin. transaction=${params.transactionId} ` +
+        `user=${params.userId} schedule=${params.scheduleId} student=${params.studentId} reason="${reason}"`,
+    )
+
+    const html = this.renderEmailLayout(
+      'Action needed: reservation failed after payment',
+      `${this.renderHeading('Reservation failed after payment')}
+      <div style="margin:0 0 24px 0;padding:12px 16px;background-color:#fef2f2;border-left:4px solid #dc2626;border-radius:6px;">
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#991b1b;"><strong>${action}</strong></p>
+      </div>
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">A customer was charged but their seat was not reserved. Details below.</p>
+      ${this.renderInfoCard([
+        { label: 'Client', value: clientName },
+        { label: 'Email', value: clientEmail },
+        { label: 'Student', value: studentName },
+        { label: 'Session', value: when },
+        { label: 'Reason', value: reason },
+        { label: 'Schedule ID', value: params.scheduleId || 'N/A' },
+        { label: 'Transaction ID', value: params.transactionId },
+      ])}`,
+    )
+
+    return this.sendMail({
+      to: ADMIN_ALERT_ADDRESS,
+      from: FROM_ADDRESS,
+      subject: classFull
+        ? '[Action needed] Paid but class full — refund required'
+        : '[Action needed] Paid but not seated — manual assignment',
       html,
     })
   }

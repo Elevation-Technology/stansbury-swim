@@ -73,6 +73,12 @@ export class PaymentController {
       if (!createPaypalOrder.studentId) {
         throw new BadRequestException('Please select a student.')
       }
+      // Group purchases auto-register the seat once payment clears, and registration
+      // requires a signed waiver. Enforce it here so we never charge a customer whose
+      // reservation would then fail silently after the fact.
+      if (!user.signedWaiver) {
+        throw new BadRequestException('Please sign the waiver before purchasing a class.')
+      }
       // Group sessions are a single seat per purchase; multi-quantity can't register.
       if (createPaypalOrder.quantity > 1) {
         throw new BadRequestException('Only one spot can be purchased per session.')

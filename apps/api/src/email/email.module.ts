@@ -13,6 +13,7 @@ import { UserSaga } from './user.saga'
 import { StudentModule } from 'student/student.module'
 import { ScheduleModule } from 'schedule/schedule.module'
 import { SendReservationEmailHandler } from './commands/send-reservation-email/send-reservation-email.handler'
+import { SendReservationFailedEmailHandler } from './commands/send-reservation-failed-email/send-reservation-failed-email.handler'
 import { PoolModule } from 'pool/pool.module'
 import { InstructorModule } from 'instructor/instructor.module'
 import { SendScheduleReminderEmailHandler } from './commands/send-schedule-reminder-email/send-schedule-reminder-email.handler'
@@ -22,6 +23,7 @@ const COMMAND_HANDLERS = [
   SendCancellationEmailHandler,
   SendWelcomeEmailHandler,
   SendReservationEmailHandler,
+  SendReservationFailedEmailHandler,
   SendScheduleReminderEmailHandler,
   SendWaitlistAllowedEmailHandler,
 ]
