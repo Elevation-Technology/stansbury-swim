@@ -5,6 +5,7 @@ export * from './enums/payment-gateway-types.enum'
 export * from './enums/payment-status-types.enum'
 export * from './enums/transaction-types.enum'
 export * from './enums/role.enum'
+export * from './enums/registration-status-types.enum'
 
 // Interfaces
 export * from './interfaces/paginated'

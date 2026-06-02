@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { Types, Document } from 'mongoose'
 import { LessonTypesEnum } from 'shared/lesson-types.enum'
+import { RegistrationStatusEnum } from 'shared/registration-status-types.enum'
 
 export enum ScheduleStatusEnum {
   ACTIVE = 'ACTIVE',
@@ -17,8 +18,16 @@ export class RegistrationEntity extends Document {
   userId: Types.ObjectId
   @Prop({ required: true })
   studentId: Types.ObjectId
-  @Prop({ required: true })
-  transactionId: Types.ObjectId
+  // Optional: a HELD seat has no transaction until the purchase is confirmed.
+  @Prop({ required: false })
+  transactionId?: Types.ObjectId
+  // CONFIRMED by default so every pre-existing row and direct registration stays valid
+  // with no migration. HELD seats are reserved during checkout and confirmed on payment.
+  @Prop({ type: String, required: true, enum: RegistrationStatusEnum, default: RegistrationStatusEnum.CONFIRMED })
+  status: RegistrationStatusEnum
+  // Only set while HELD; once past this instant the hold no longer occupies a seat.
+  @Prop({ required: false })
+  heldUntil?: Date
   @Prop({ required: false })
   reminderSentAt?: Date
 }

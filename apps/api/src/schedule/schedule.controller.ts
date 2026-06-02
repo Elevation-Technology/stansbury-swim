@@ -30,6 +30,8 @@ import { SearchScheduleRequestDto } from './dto/search-schedule-request.dto'
 import { SearchScheduleResponseDto } from './dto/search-schedule-response.dto'
 import { ParentTotScheduleResponseDto } from './dto/parent-tot-schedule-response.dto'
 import { ScheduleResponseDto } from './dto/schedules-response.dto'
+import { isActiveRegistration } from './registration.util'
+import { RegistrationStatusEnum } from 'shared/registration-status-types.enum'
 
 @Controller('schedules')
 export class ScheduleController {
@@ -73,14 +75,19 @@ export class ScheduleController {
         lessonType: schedule.lessonType,
         startDateTime: schedule.startDateTime.toISOString(),
         endDateTime: schedule.endDateTime.toISOString(),
-        registrations: schedule.registrations.map(registration => {
-          const student = students.find(student => student.id === registration.studentId)
-          const user = users.find(user => user.id === registration.userId)
-          return {
-            studentId: registration.studentId,
-            userId: registration.userId,
-            createdAt: registration.createdAt.toISOString(),
-            student: {
+        registrations: schedule.registrations
+          // Drop expired holds — they no longer occupy a seat. Confirmed seats and live
+          // holds remain; live holds are tagged `pending` so admins see who's mid-checkout.
+          .filter(registration => isActiveRegistration(registration))
+          .map(registration => {
+            const student = students.find(student => student.id === registration.studentId)
+            const user = users.find(user => user.id === registration.userId)
+            return {
+              studentId: registration.studentId,
+              userId: registration.userId,
+              createdAt: registration.createdAt.toISOString(),
+              pending: registration.status === RegistrationStatusEnum.HELD,
+              student: {
               id: student?.id ?? '',
               name: student?.name ?? '',
               birthDate: student?.birthday.toISOString() ?? '',
@@ -113,7 +120,8 @@ export class ScheduleController {
     return schedules.map(schedule => ({
       ...schedule,
       registrations: undefined,
-      spotsAvailable: schedule.classSize - schedule.registrations.length,
+      // Holds occupy seats too, so the public count reflects confirmed + live holds.
+      spotsAvailable: schedule.classSize - schedule.registrations.filter(r => isActiveRegistration(r)).length,
     }))
   }
 
@@ -176,13 +184,16 @@ export class ScheduleController {
         lessonType: schedule.lessonType,
         startDateTime: schedule.startDateTime.toISOString(),
         endDateTime: schedule.endDateTime.toISOString(),
-        registrations: schedule.registrations.map(registration => {
+        registrations: schedule.registrations
+          .filter(registration => isActiveRegistration(registration))
+          .map(registration => {
           const student = (registration as any).student || { id: '', name: '', birthDate: '', notes: '' }
           const user = (registration as any).user || { id: '', firstName: '', lastName: '', email: '', role: Role.User }
           return {
             studentId: registration.studentId,
             userId: registration.userId,
             createdAt: registration.createdAt.toISOString(),
+            pending: registration.status === RegistrationStatusEnum.HELD,
             student: {
               id: student.id ?? '',
               name: student.name ?? '',

@@ -15,6 +15,8 @@ import { EventBus } from '@nestjs/cqrs'
 import { differenceInHours } from 'date-fns'
 import { StudentService } from 'student/student.service'
 import { RegistrationCreatedEvent } from './events/registration-created.event'
+import { RegistrationStatusEnum } from 'shared/registration-status-types.enum'
+import { HOLD_TTL_MS, hasAvailableSeatExpr } from './registration.util'
 
 const mapper = (entity: ScheduleEntity): Schedule => {
   return {
@@ -29,7 +31,9 @@ const mapper = (entity: ScheduleEntity): Schedule => {
       userId: registration.userId.toString(),
       studentId: registration.studentId.toString(),
       createdAt: registration.createdAt,
-      transactionId: registration.transactionId.toString(),
+      transactionId: registration.transactionId?.toString(),
+      status: registration.status ?? RegistrationStatusEnum.CONFIRMED,
+      heldUntil: registration.heldUntil,
     })),
   }
 }
@@ -85,14 +89,16 @@ export class RegistrationService {
         userId: new Types.ObjectId(createRegistrationDto.userId),
         studentId: new Types.ObjectId(createRegistrationDto.studentId),
         createdAt: new Date(),
+        status: RegistrationStatusEnum.CONFIRMED,
         transactionId: undefined, // placeholder
       }
 
-      // Atomically check and push registration
+      // Atomically check and push registration. The capacity guard counts confirmed seats
+      // plus unexpired holds, so a seat reserved mid-checkout can't be double-booked here.
       const updated = await this.model.findOneAndUpdate(
         {
           _id: new Types.ObjectId(scheduleId),
-          $expr: { $lt: [{ $size: '$registrations' }, '$classSize'] },
+          $expr: hasAvailableSeatExpr,
         },
         { $push: { registrations: registration } },
         { new: true },
@@ -138,6 +144,157 @@ export class RegistrationService {
     return mapper(entity)
   }
 
+  /**
+   * Reserve a seat during checkout, BEFORE the customer is charged. Pushes a HELD
+   * registration (no transaction yet) guarded by the capacity check so the seat can't be
+   * oversold. Expired holds are pulled in the same write so they never permanently block a
+   * class. Confirmed later by {@link confirmHold} once payment succeeds.
+   */
+  async hold(scheduleId: string, createRegistrationDto: CreateRegistrationDto): Promise<void> {
+    const user = await this.userService.findOne(createRegistrationDto.userId)
+    if (!user) {
+      throw new NotFoundException('User not found')
+    }
+    if (!user.signedWaiver) {
+      throw new BadRequestException('User has not signed waiver')
+    }
+
+    const student = await this.studentService.findOne(createRegistrationDto.studentId)
+    if (!student || student.userId.toString() !== createRegistrationDto.userId) {
+      throw new NotFoundException('Student not found')
+    }
+
+    const now = new Date()
+
+    // First, drop any expired holds so they don't count against capacity for this push.
+    await this.model.updateOne(
+      { _id: new Types.ObjectId(scheduleId) },
+      {
+        $pull: {
+          registrations: { status: RegistrationStatusEnum.HELD, heldUntil: { $lte: now } },
+        },
+      },
+    )
+
+    const registration = {
+      userId: new Types.ObjectId(createRegistrationDto.userId),
+      studentId: new Types.ObjectId(createRegistrationDto.studentId),
+      createdAt: now,
+      status: RegistrationStatusEnum.HELD,
+      heldUntil: new Date(now.getTime() + HOLD_TTL_MS),
+      transactionId: undefined,
+    }
+
+    const updated = await this.model.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(scheduleId),
+        $expr: hasAvailableSeatExpr,
+      },
+      { $push: { registrations: registration } },
+      { new: true },
+    )
+
+    if (!updated) {
+      throw new BadRequestException('Schedule is full')
+    }
+  }
+
+  /**
+   * Finalize a held seat once payment has cleared. Flips the HELD registration to CONFIRMED
+   * and books the -1 Register credit transaction. If the hold already expired (slow checkout)
+   * but a seat is still open, claim one atomically instead. If neither is possible the caller
+   * (post-payment handler) surfaces a ReservationFailedEvent so the customer can be refunded.
+   */
+  async confirmHold(scheduleId: string, createRegistrationDto: CreateRegistrationDto): Promise<Schedule> {
+    const schedule = await this.model.findById(new Types.ObjectId(scheduleId))
+    if (!schedule) {
+      throw new NotFoundException('Schedule not found')
+    }
+
+    const student = await this.studentService.findOne(createRegistrationDto.studentId)
+    if (!student || student.userId.toString() !== createRegistrationDto.userId) {
+      throw new NotFoundException('Student not found')
+    }
+
+    const userObjectId = new Types.ObjectId(createRegistrationDto.userId)
+    const studentObjectId = new Types.ObjectId(createRegistrationDto.studentId)
+    const now = new Date()
+
+    // The purchase already booked +N credits; record the -1 Register debit to keep the
+    // ledger balanced, exactly as the direct-registration path does.
+    const transaction = await this.transactionService.create({
+      userId: createRegistrationDto.userId,
+      credits: -1,
+      creditType: schedule.lessonType == LessonTypesEnum.PRIVATE ? CreditTypesEnum.PRIVATE : CreditTypesEnum.GROUP,
+      transactionType: TransactionTypesEnum.Register,
+      scheduleId,
+      studentId: createRegistrationDto.studentId,
+    })
+
+    // Confirm the existing unexpired hold for this user+student in place.
+    const confirmed = await this.model.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(scheduleId),
+        registrations: {
+          $elemMatch: {
+            userId: userObjectId,
+            studentId: studentObjectId,
+            status: RegistrationStatusEnum.HELD,
+            heldUntil: { $gt: now },
+          },
+        },
+      },
+      {
+        $set: {
+          'registrations.$.status': RegistrationStatusEnum.CONFIRMED,
+          'registrations.$.transactionId': transaction.id,
+        },
+        $unset: { 'registrations.$.heldUntil': '' },
+      },
+      { new: true },
+    )
+
+    let entity = confirmed
+
+    if (!entity) {
+      // Hold expired before payment cleared. Reclaim a seat atomically if one is still free.
+      entity = await this.model.findOneAndUpdate(
+        {
+          _id: new Types.ObjectId(scheduleId),
+          $expr: hasAvailableSeatExpr,
+        },
+        {
+          $push: {
+            registrations: {
+              userId: userObjectId,
+              studentId: studentObjectId,
+              createdAt: now,
+              status: RegistrationStatusEnum.CONFIRMED,
+              transactionId: new Types.ObjectId(transaction.id),
+            },
+          },
+        },
+        { new: true },
+      )
+    }
+
+    if (!entity) {
+      // Seat is gone and the class is full — undo the debit and signal the caller to refund.
+      await this.transactionService.create({
+        userId: createRegistrationDto.userId,
+        credits: 1,
+        creditType: schedule.lessonType == LessonTypesEnum.PRIVATE ? CreditTypesEnum.PRIVATE : CreditTypesEnum.GROUP,
+        transactionType: TransactionTypesEnum.CancelRegistration,
+        scheduleId,
+        studentId: createRegistrationDto.studentId,
+      })
+      throw new BadRequestException('Class is full')
+    }
+
+    this.eventBus.publish(new RegistrationCreatedEvent(createRegistrationDto.userId, scheduleId, student.id))
+    return mapper(entity)
+  }
+
   async findAll(scheduleId: string): Promise<Registration[]> {
     const schedule = await this.model.findById(new Types.ObjectId(scheduleId))
     if (!schedule) {
@@ -147,7 +304,9 @@ export class RegistrationService {
       userId: registration.userId.toString(),
       studentId: registration.studentId.toString(),
       createdAt: registration.createdAt,
-      transactionId: registration.transactionId.toString(),
+      transactionId: registration.transactionId?.toString(),
+      status: registration.status ?? RegistrationStatusEnum.CONFIRMED,
+      heldUntil: registration.heldUntil,
     }))
   }
 

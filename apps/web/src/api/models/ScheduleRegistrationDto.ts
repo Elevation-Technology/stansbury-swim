@@ -8,6 +8,7 @@ export type ScheduleRegistrationDto = {
     studentId: string;
     userId: string;
     createdAt: string;
+    pending?: boolean;
     student: ScheduleStudentDto;
     user: ScheduleUserDto;
 };

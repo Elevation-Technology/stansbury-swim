@@ -58,13 +58,10 @@ export class CreateReservationFromTransactionHandler
       return
     }
 
-    const schedule = await this.scheduleService.findOne(command.transaction.scheduleId)
-
-    if (schedule.registrations.length >= schedule.classSize) {
-      throw new Error('Class is full')
-    }
-
-    await this.registrationService.create(command.transaction.scheduleId, {
+    // Seat was already reserved (HELD) during checkout — finalize it now that payment
+    // cleared. confirmHold reclaims an open seat if the hold expired, or throws if the
+    // class filled up, which the catch in execute() turns into a ReservationFailedEvent.
+    await this.registrationService.confirmHold(command.transaction.scheduleId, {
       userId: command.transaction.userId,
       studentId: command.transaction.studentId,
     })

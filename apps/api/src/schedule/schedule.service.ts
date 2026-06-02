@@ -11,6 +11,8 @@ import { addDays, addHours } from 'date-fns'
 import { RegistrationService } from './registration.service'
 import { RegistrationReminderEvent } from './events/registration-reminder.event'
 import { EventBus } from '@nestjs/cqrs'
+import { RegistrationStatusEnum } from 'shared/registration-status-types.enum'
+import { activeRegistrationsExpr, isActiveRegistration } from './registration.util'
 
 const mapper = (entity: ScheduleEntity): Schedule => {
   return {
@@ -25,7 +27,9 @@ const mapper = (entity: ScheduleEntity): Schedule => {
       userId: registration.userId.toString(),
       studentId: registration.studentId.toString(),
       createdAt: registration.createdAt,
-      transactionId: registration.transactionId.toString(),
+      transactionId: registration.transactionId?.toString(),
+      status: registration.status ?? RegistrationStatusEnum.CONFIRMED,
+      heldUntil: registration.heldUntil,
     })),
   }
 }
@@ -143,7 +147,9 @@ export class ScheduleService {
     if (includeReserved) {
       return results
     }
-    return results.filter(schedule => schedule.registrations.length < schedule.classSize)
+    return results.filter(
+      schedule => schedule.registrations.filter(r => isActiveRegistration(r)).length < schedule.classSize,
+    )
   }
 
   async findOne(id: string, includeCancelled?: boolean): Promise<Schedule> {
@@ -224,7 +230,7 @@ export class ScheduleService {
       .find({
         lessonType: LessonTypesEnum.PRIVATE,
         status: ScheduleStatusEnum.ACTIVE,
-        $expr: { $lt: [{ $size: '$registrations' }, '$classSize'] },
+        $expr: { $lt: [{ $size: activeRegistrationsExpr }, '$classSize'] },
       })
       .sort({ startDateTime: 1 })
 
@@ -266,7 +272,7 @@ export class ScheduleService {
     return await this.model.countDocuments({
       lessonType: LessonTypesEnum.PRIVATE,
       status: ScheduleStatusEnum.ACTIVE,
-      $expr: { $lt: [{ $size: '$registrations' }, '$classSize'] },
+      $expr: { $lt: [{ $size: activeRegistrationsExpr }, '$classSize'] },
       startDateTime,
     })
   }
@@ -278,7 +284,7 @@ export class ScheduleService {
     return await this.model.countDocuments({
       lessonType: LessonTypesEnum.GROUP,
       status: ScheduleStatusEnum.ACTIVE,
-      $expr: { $lt: [{ $size: '$registrations' }, '$classSize'] },
+      $expr: { $lt: [{ $size: activeRegistrationsExpr }, '$classSize'] },
       startDateTime,
     })
   }
@@ -294,6 +300,10 @@ export class ScheduleService {
 
     for (const schedule of schedules) {
       for (const registration of schedule.registrations) {
+        // Only confirmed (paid) seats get reminders — never a transient hold.
+        if (registration.status === RegistrationStatusEnum.HELD) {
+          continue
+        }
         this.logger.log(`Sending reminder for schedule ${schedule._id} and student ${registration.studentId}`)
         this.eventBus.publish(
           new RegistrationReminderEvent(

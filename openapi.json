@@ -1181,7 +1181,16 @@
     "/api/waitlist": {
       "get": {
         "operationId": "WaitlistController_findAll",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "includeArchived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -1273,6 +1282,102 @@
           }
         },
         "summary": "Allow a user to purchase from the waitlist",
+        "tags": [
+          "waitlist"
+        ]
+      }
+    },
+    "/api/waitlist/{id}/archive": {
+      "patch": {
+        "operationId": "WaitlistController_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Waitlist entry id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitlistResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Archive a waitlist entry",
+        "tags": [
+          "waitlist"
+        ]
+      }
+    },
+    "/api/waitlist/{id}/unarchive": {
+      "patch": {
+        "operationId": "WaitlistController_unarchive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Waitlist entry id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitlistResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Restore an archived waitlist entry",
+        "tags": [
+          "waitlist"
+        ]
+      }
+    },
+    "/api/waitlist/bulk-archive": {
+      "post": {
+        "operationId": "WaitlistController_bulkArchive",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkArchiveWaitlistDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkArchiveWaitlistResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Archive all waitlist entries created before a given date",
         "tags": [
           "waitlist"
         ]
@@ -3117,6 +3222,9 @@
           "allowedOn": {
             "type": "string"
           },
+          "archivedAt": {
+            "type": "string"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -3136,6 +3244,30 @@
           "allowed",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "BulkArchiveWaitlistDto": {
+        "type": "object",
+        "properties": {
+          "before": {
+            "type": "string",
+            "description": "Archive entries created strictly before this ISO date.",
+            "example": "2026-01-01T00:00:00.000Z"
+          }
+        },
+        "required": [
+          "before"
+        ]
+      },
+      "BulkArchiveWaitlistResponseDto": {
+        "type": "object",
+        "properties": {
+          "archivedCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "archivedCount"
         ]
       },
       "ScheduleStudentDto": {
@@ -3204,6 +3336,10 @@
           },
           "createdAt": {
             "type": "string"
+          },
+          "pending": {
+            "type": "boolean",
+            "description": "True when the seat is held pending payment."
           },
           "student": {
             "$ref": "#/components/schemas/ScheduleStudentDto"
@@ -3392,6 +3528,10 @@
           },
           "createdAt": {
             "type": "string"
+          },
+          "pending": {
+            "type": "boolean",
+            "description": "True when the seat is held pending payment."
           },
           "student": {
             "$ref": "#/components/schemas/SearchScheduleStudentDto"

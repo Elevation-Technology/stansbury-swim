@@ -83,15 +83,13 @@ export class PaymentController {
       if (createPaypalOrder.quantity > 1) {
         throw new BadRequestException('Only one spot can be purchased per session.')
       }
-    }
-
-    if (scheduleId) {
-      const schedule = await this.scheduleService.findOne(scheduleId)
-      const registrations = await this.registrationService.findAll(scheduleId)
-      const classSize = registrations.length + createPaypalOrder.quantity
-      if (schedule.classSize && classSize > schedule.classSize) {
-        throw new BadRequestException('Schedule is full')
-      }
+      // Reserve the seat NOW, before charging. This atomically holds capacity for 10 minutes
+      // so the customer can't pay only to find the class full when the reservation finalizes.
+      // Throws 'Schedule is full' here — before any PayPal order exists — if there's no room.
+      await this.registrationService.hold(scheduleId, {
+        userId: userdata.sub,
+        studentId: createPaypalOrder.studentId,
+      })
     }
 
     const order = await this.paypalService.createOrder(createPaypalOrder.productId, createPaypalOrder.quantity, user)
@@ -122,15 +120,8 @@ export class PaymentController {
       throw new NotFoundException()
     }
 
-    if (payment.scheduleId) {
-      const schedule = await this.scheduleService.findOne(payment.scheduleId)
-      const registrations = await this.registrationService.findAll(payment.scheduleId)
-      const classSize = registrations.length + payment.quantity
-      if (schedule.classSize && classSize > schedule.classSize) {
-        throw new BadRequestException('Schedule is full')
-      }
-    }
-
+    // No capacity re-check here: the seat was already reserved during create-order and is
+    // held through capture. confirmHold (post-payment) finalizes it or signals a refund.
     if (payment.userId !== userdata.sub) {
       throw new NotFoundException()
     }

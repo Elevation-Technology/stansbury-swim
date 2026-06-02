@@ -10,7 +10,8 @@ export interface Schedule {
     userId: string
     studentId: string
     createdAt: string
-    transactionId: string
+    transactionId?: string
+    pending?: boolean
   }>
 
   spotsAvailable?: number

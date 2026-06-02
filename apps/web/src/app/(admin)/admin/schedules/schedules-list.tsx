@@ -122,6 +122,11 @@ export default function SchedulesList({ schedules, onDelete }: SchedulesListProp
                                     >
                                       {r.student.name}
                                     </Link>
+                                    {r.pending && (
+                                      <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800 no-underline">
+                                        pending payment
+                                      </span>
+                                    )}
                                   </Fragment>
                                 ))}
                               </span>

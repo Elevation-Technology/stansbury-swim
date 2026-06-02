@@ -32,6 +32,8 @@ class ScheduleRegistrationDto {
   userId: string
   @ApiProperty()
   createdAt: string
+  @ApiProperty({ required: false, description: 'True when the seat is held pending payment.' })
+  pending?: boolean
   @ApiProperty({ type: ScheduleStudentDto })
   student: ScheduleStudentDto
   @ApiProperty({ type: ScheduleUserDto })
