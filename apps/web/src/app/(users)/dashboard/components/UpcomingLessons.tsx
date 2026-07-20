@@ -8,6 +8,7 @@ import { RegistrationService } from '@/services/api/shared/registrationService'
 import { Student } from '@lib/index'
 import { useCredits } from '@contexts/index'
 import { ScheduleResponseDto, InstructorResponseDto, PoolDto, StudentResponseDto } from '@/api'
+import { ORG_TIMEZONE } from '@/app/utils/dates'
 
 function classNames(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ')
@@ -35,6 +36,7 @@ export default function UpcomingLessons({
   const [timeOptions, setTimeOptions] = useState<Intl.DateTimeFormatOptions>({
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: ORG_TIMEZONE,
   })
 
   // Track loading for both students and schedules
@@ -66,16 +68,19 @@ export default function UpcomingLessons({
   }
 
   useEffect(() => {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(new Date())
-    const tzPart = parts.find(part => part.type === 'timeZoneName')
+    const viewerTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
     const newOptions: Intl.DateTimeFormatOptions = {
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: ORG_TIMEZONE,
     }
 
-    if (tzPart && tzPart.value !== 'MDT') {
-      newOptions.timeZoneName = 'short'
+    // Viewers whose device is set outside the pool's timezone get an explicit
+    // label so they don't read the time as local. 'shortGeneric' renders 'MT'
+    // rather than 'MDT'/'MST', matching the Time component.
+    if (viewerTimeZone !== ORG_TIMEZONE) {
+      newOptions.timeZoneName = 'shortGeneric'
     }
     setTimeOptions(newOptions)
   }, [])
@@ -154,10 +159,15 @@ export default function UpcomingLessons({
                 )
                 if (!instructor || !pool || !student) return null
 
-                // format time to local time
+                // format time in the pool's timezone
                 const time = new Date(schedule.startDateTime)
                 const timeOfDay = time.toLocaleTimeString('en-US', timeOptions)
-                const day = time.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+                const day = time.toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  timeZone: ORG_TIMEZONE,
+                })
                 // subtract start and end times
                 const start = new Date(schedule.startDateTime)
                 const end = new Date(schedule.endDateTime)
@@ -280,10 +290,15 @@ export default function UpcomingLessons({
                 )
                 if (!instructor || !pool || !student) return null
 
-                // format time to local time
+                // format time in the pool's timezone
                 const time = new Date(schedule.startDateTime)
                 const timeOfDay = time.toLocaleTimeString('en-US', timeOptions)
-                const day = time.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+                const day = time.toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  timeZone: ORG_TIMEZONE,
+                })
                 // subtract start and end times
                 const start = new Date(schedule.startDateTime)
                 const end = new Date(schedule.endDateTime)

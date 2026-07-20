@@ -27,8 +27,7 @@ import { PoolService } from '@/services/api/shared/poolService'
 import { InstructorService } from '@/services/api/shared/instructorService'
 import Header from '../components/Header'
 import Time from '@/app/components/time'
-
-const TIMEZONE = 'America/Denver'
+import { ORG_TIMEZONE as TIMEZONE } from '@/app/utils/dates'
 
 export interface Option {
   value: string

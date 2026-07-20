@@ -8,6 +8,7 @@ import { ConfigEnum } from '../shared/config.enum'
 import { Student } from 'student/student'
 import { Schedule } from 'schedule/schedule'
 import { formatInTimeZone } from 'date-fns-tz'
+import { ORG_TIMEZONE } from '../shared/timezone'
 import { PoolService } from 'pool/pool.service'
 import { InstructorService } from 'instructor/instructor.service'
 
@@ -143,7 +144,7 @@ export class EmailService {
   }
 
   public async sendCancellationEmail(user: User, student: Student, schedule: Schedule): Promise<void> {
-    const formattedDateTimeMdt = formatInTimeZone(schedule.startDateTime, 'America/Denver', 'MM/dd/yyyy hh:mm a')
+    const formattedDateTimeMdt = formatInTimeZone(schedule.startDateTime, ORG_TIMEZONE, 'MM/dd/yyyy hh:mm a')
 
     const html = this.renderEmailLayout(
       'Lesson Cancellation Confirmation',
@@ -164,7 +165,7 @@ export class EmailService {
   }
 
   public async sendReservationEmail(user: User, student: Student, schedule: Schedule): Promise<void> {
-    const formattedDateTimeMdt = formatInTimeZone(schedule.startDateTime, 'America/Denver', 'MM/dd/yyyy hh:mm a')
+    const formattedDateTimeMdt = formatInTimeZone(schedule.startDateTime, ORG_TIMEZONE, 'MM/dd/yyyy hh:mm a')
     const pool = await this.poolService.findOne(schedule.poolId)
     const instructor = await this.instructorService.findOne(schedule.instructorId)
 
@@ -199,7 +200,7 @@ export class EmailService {
     schedule: Schedule,
     corrected: boolean = false,
   ): Promise<void> {
-    const formattedDateTimeMdt = formatInTimeZone(schedule.startDateTime, 'America/Denver', 'MM/dd/yyyy hh:mm a')
+    const formattedDateTimeMdt = formatInTimeZone(schedule.startDateTime, ORG_TIMEZONE, 'MM/dd/yyyy hh:mm a')
     const pool = await this.poolService.findOne(schedule.poolId)
     const instructor = await this.instructorService.findOne(schedule.instructorId)
 
@@ -265,7 +266,7 @@ export class EmailService {
     const { user, student, schedule, reason, classFull } = params
 
     const when = schedule?.startDateTime
-      ? formatInTimeZone(schedule.startDateTime, 'America/Denver', 'MM/dd/yyyy hh:mm a')
+      ? formatInTimeZone(schedule.startDateTime, ORG_TIMEZONE, 'MM/dd/yyyy hh:mm a')
       : 'Unknown'
     const clientName = user ? `${user.firstName} ${user.lastName}` : params.userId
     const clientEmail = user?.email ?? 'Unknown'

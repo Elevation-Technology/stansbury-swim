@@ -3,16 +3,18 @@
 import { useState, useEffect, useMemo } from 'react'
 import SchedulesList from './schedules-list'
 import Filter from './filter'
+import TimezoneNotice from '@/app/components/timezone-notice'
 import { ScheduleService } from '@/services/api/shared/scheduleService'
 import { Button } from '@components/button'
-import { parseISO, isSameDay } from 'date-fns'
+import { formatInTimeZone } from 'date-fns-tz'
+import { ORG_TIMEZONE } from '@/app/utils/dates'
 import { useUser } from '@contexts/user-context'
 import { ScheduleResponseDto } from '@/api'
 const ITEMS_PER_PAGE = 150
 
 export default function ClientWrapper() {
   const [selectedPool, setSelectedPool] = useState('')
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState(formatInTimeZone(new Date(), ORG_TIMEZONE, 'yyyy-MM-dd'))
   const [schedules, setSchedules] = useState<ScheduleResponseDto[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
@@ -47,12 +49,13 @@ export default function ClientWrapper() {
         return false
       }
 
-      // Filter by date - only apply if a date is selected
+      // Filter by date - only apply if a date is selected.
+      // Compare calendar dates in the pool's timezone so the day a lesson falls on
+      // does not shift with the viewer's device timezone.
       if (selectedDate) {
-        const scheduleDate = parseISO(schedule.startDateTime)
-        const selectedDateObj = parseISO(selectedDate)
+        const scheduleDate = formatInTimeZone(new Date(schedule.startDateTime), ORG_TIMEZONE, 'yyyy-MM-dd')
 
-        if (!isSameDay(scheduleDate, selectedDateObj)) {
+        if (scheduleDate !== selectedDate) {
           return false
         }
       }
@@ -80,6 +83,7 @@ export default function ClientWrapper() {
   return (
     <>
       <div className="mt-6">
+        <TimezoneNotice />
         <Filter
           onPoolChange={setSelectedPool}
           onDateChange={setSelectedDate}

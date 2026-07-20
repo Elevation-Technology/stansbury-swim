@@ -71,3 +71,6 @@ API-CLIENT-TRANSITION.md
 .github/instructions/nx.instructions.md
 
 backup.gzip
+
+# TypeScript incremental build cache
+*.tsbuildinfo

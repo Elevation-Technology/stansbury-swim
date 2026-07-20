@@ -6,8 +6,9 @@ import { Schedule } from './schedule'
 import { CreateScheduleDto } from './dto/create-schedule.dto'
 import { UpdateScheduleDto } from './dto/update-schedule.dto'
 import { LessonTypesEnum } from 'shared/lesson-types.enum'
-import { fromZonedTime, toZonedTime } from 'date-fns-tz'
-import { addDays, addHours } from 'date-fns'
+import { fromZonedTime, formatInTimeZone } from 'date-fns-tz'
+import { addHours } from 'date-fns'
+import { ORG_TIMEZONE } from 'shared/timezone'
 import { RegistrationService } from './registration.service'
 import { RegistrationReminderEvent } from './events/registration-reminder.event'
 import { EventBus } from '@nestjs/cqrs'
@@ -101,6 +102,12 @@ export class ScheduleService {
       $and: [],
     }
 
+    // Every calendar question below has to be answered in the same zone, or a
+    // weekday filter and a date filter can disagree about which day a lesson is on.
+    // Callers that omit a timezone previously fell back to UTC, which put a 6pm
+    // lesson on the following day, so the pool's zone is the default not a fallback.
+    const zone = timezone ?? ORG_TIMEZONE
+
     if (poolIds && poolIds.length > 0) {
       filter.$and.push({ poolId: { $in: poolIds.map(id => new Types.ObjectId(id)) } })
     }
@@ -111,35 +118,30 @@ export class ScheduleService {
 
     if (daysOfWeek && daysOfWeek.length > 0) {
       filter.$and.push({
-        $or: daysOfWeek.map(dayOfWeek => ({ $expr: { $eq: [{ $dayOfWeek: '$startDateTime' }, dayOfWeek] } })),
+        // Without an explicit timezone Mongo evaluates $dayOfWeek in UTC, which
+        // rolls evening lessons onto the next weekday.
+        $or: daysOfWeek.map(dayOfWeek => ({
+          $expr: { $eq: [{ $dayOfWeek: { date: '$startDateTime', timezone: zone } }, dayOfWeek] },
+        })),
       })
     }
 
     if (date) {
-      if (timezone) {
-        // Convert local dates to UTC for database query
-        const startOfDayOffset = fromZonedTime(date, timezone)
-        const endOfDayOffset = addDays(startOfDayOffset, 1)
+      // Step to the next calendar date and convert that to an instant, rather than
+      // adding 24 hours. On the two DST transition days a local day is 23 or 25
+      // hours long, so 24 hours lands in the wrong place.
+      const [year, month, day] = date.split('-').map(Number)
+      const nextDate = new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10)
 
-        filter.$and.push({
-          startDateTime: {
-            $gte: startOfDayOffset,
-            $lt: endOfDayOffset,
-          },
-        })
-      } else {
-        // If no timezone provided, use UTC dates
-        const [year, month, day] = date.split('-').map(Number)
-        const startOfDay = new Date(Date.UTC(year, month - 1, day, 0, 0, 0))
-        const endOfDay = new Date(Date.UTC(year, month - 1, day, 23, 59, 59))
+      const startOfDay = fromZonedTime(date, zone)
+      const endOfDay = fromZonedTime(nextDate, zone)
 
-        filter.$and.push({
-          startDateTime: {
-            $gte: startOfDay,
-            $lt: endOfDay,
-          },
-        })
-      }
+      filter.$and.push({
+        startDateTime: {
+          $gte: startOfDay,
+          $lt: endOfDay,
+        },
+      })
     }
 
     const entities = await this.model.find(filter).sort({ startDateTime: 1 })
@@ -187,12 +189,14 @@ export class ScheduleService {
       updates['lessonType'] = updateScheduleDto.lessonType
     }
 
+    // Parsed explicitly rather than leaning on Mongoose casting the string, so
+    // this matches create() and the stored type is obvious at the call site.
     if (updateScheduleDto.startDateTime) {
-      updates['startDateTime'] = updateScheduleDto.startDateTime
+      updates['startDateTime'] = new Date(updateScheduleDto.startDateTime)
     }
 
     if (updateScheduleDto.endDateTime) {
-      updates['endDateTime'] = updateScheduleDto.endDateTime
+      updates['endDateTime'] = new Date(updateScheduleDto.endDateTime)
     }
 
     await this.model.updateOne(
@@ -238,15 +242,10 @@ export class ScheduleService {
     const uniqueDates = new Set<string>()
 
     availableLessons.forEach(lesson => {
-      const date = lesson.startDateTime
-      if (timezone) {
-        // Convert UTC to local timezone
-        const localDate = toZonedTime(date, timezone)
-        uniqueDates.add(localDate.toISOString().split('T')[0])
-      } else {
-        // Use UTC date
-        uniqueDates.add(date.toISOString().split('T')[0])
-      }
+      // formatInTimeZone reads the calendar date directly in the target zone.
+      // The previous toZonedTime().toISOString() pattern only produced the right
+      // answer because the server happens to run in UTC.
+      uniqueDates.add(formatInTimeZone(lesson.startDateTime, timezone ?? ORG_TIMEZONE, 'yyyy-MM-dd'))
     })
 
     return Array.from(uniqueDates)

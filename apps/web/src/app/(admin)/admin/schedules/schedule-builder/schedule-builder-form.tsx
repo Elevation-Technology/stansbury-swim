@@ -5,6 +5,8 @@ import { Select } from '@components/select'
 import { useInstructors } from '@contexts/instructor-context'
 import { usePools } from '@contexts/pools-context'
 import { format, subWeeks, subDays, parse } from 'date-fns'
+import { fromZonedTime, formatInTimeZone } from 'date-fns-tz'
+import { ORG_TIMEZONE } from '@/app/utils/dates'
 import { ScheduleService } from '@/services/api/shared/scheduleService'
 import { Button } from '@components/button'
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
@@ -25,7 +27,7 @@ export default function ScheduleBuilderForm() {
   const { pools } = usePools()
   const [selectedPool, setSelectedPool] = useState('')
   const [selectedInstructor, setSelectedInstructor] = useState('')
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState(formatInTimeZone(new Date(), ORG_TIMEZONE, 'yyyy-MM-dd'))
   const [currentDayLessons, setCurrentDayLessons] = useState<SearchScheduleResponseDto[]>([])
   const [previousWeekLessons, setPreviousWeekLessons] = useState<SearchScheduleResponseDto[]>([])
   const [previousDayLessons, setPreviousDayLessons] = useState<SearchScheduleResponseDto[]>([])
@@ -52,20 +54,13 @@ export default function ScheduleBuilderForm() {
   }))
 
   const searchLessons = async (poolId: string, instructorId: string, date: Date, daysOfWeek?: string) => {
-    const queryString = new URLSearchParams()
-    queryString.append('pools', poolId)
-    queryString.append('instructors', instructorId)
-    queryString.append('date', date.toISOString().split('T')[0])
-    queryString.append('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone)
-    if (daysOfWeek) {
-      queryString.append('daysOfWeek', daysOfWeek)
-    }
-    queryString.append('includeReserved', 'true')
     const apiLessons = await ScheduleService.search({
       pools: [poolId],
       instructors: [instructorId],
-      date: date.toISOString().split('T')[0],
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      // `date` is a calendar date held at local midnight, so read its local fields.
+      // toISOString would convert to UTC and shift the date for browsers east of UTC.
+      date: format(date, 'yyyy-MM-dd'),
+      timezone: ORG_TIMEZONE,
       daysOfWeek: daysOfWeek ? [daysOfWeek] : undefined,
       includeReserved: true,
     })
@@ -249,9 +244,10 @@ export default function ScheduleBuilderForm() {
           setCurrentSavingIndex(formIndex)
         }
 
-        // Create date strings with timezone offset
-        const startDateTime = new Date(`${selectedDate}T${form.startTime}:00`)
-        const endDateTime = new Date(`${selectedDate}T${form.endTime}:00`)
+        // The entered time is wall-clock time at the pool, so anchor it to the
+        // organization's timezone instead of whatever the admin's browser is set to.
+        const startDateTime = fromZonedTime(`${selectedDate}T${form.startTime}:00`, ORG_TIMEZONE)
+        const endDateTime = fromZonedTime(`${selectedDate}T${form.endTime}:00`, ORG_TIMEZONE)
 
         // Format dates with timezone offset
         const startDateTimeString = startDateTime.toISOString()

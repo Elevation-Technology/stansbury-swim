@@ -107,7 +107,7 @@ export default function SchedulesList({ schedules, onDelete }: SchedulesListProp
                           {schedule.lessonType === 'private' ? 'Private' : 'Group'}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                          <Time dateTime={schedule.startDateTime} />
+                          <Time dateTime={schedule.startDateTime} alwaysShowTimeZone />
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {schedule.registrations.length > 0 && (

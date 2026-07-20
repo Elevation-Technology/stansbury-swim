@@ -5,6 +5,8 @@ import { TransactionTypesEnum } from 'shared/transaction-types.enum'
 import { CreditTypesEnum } from 'shared/credit-types.enum'
 import { UserService } from 'user/user.service'
 import { ScheduleService } from 'schedule/schedule.service'
+import { fromZonedTime, formatInTimeZone } from 'date-fns-tz'
+import { ORG_TIMEZONE } from 'shared/timezone'
 
 @Injectable()
 export class StatsService {
@@ -15,10 +17,12 @@ export class StatsService {
   ) {}
 
   async getStats(year?: number): Promise<Stats> {
-    const targetYear = year ?? new Date().getUTCFullYear()
+    // Reporting years run on the pool's calendar. In UTC the year would roll over
+    // at 5pm local on December 31 and misfile that evening's activity.
+    const targetYear = year ?? Number(formatInTimeZone(new Date(), ORG_TIMEZONE, 'yyyy'))
     const range = {
-      from: new Date(Date.UTC(targetYear, 0, 1)),
-      to: new Date(Date.UTC(targetYear + 1, 0, 1)),
+      from: fromZonedTime(`${targetYear}-01-01`, ORG_TIMEZONE),
+      to: fromZonedTime(`${targetYear + 1}-01-01`, ORG_TIMEZONE),
     }
 
     const privateLessons = await this.transactionService.countCredits({

@@ -14,6 +14,7 @@ import { StudentService } from '@/services/api/shared/studentService'
 import { TransactionsService } from '@/services/api/shared/transactionsService'
 import { ScheduleService } from '@/services/api/shared/scheduleService'
 import { PoolService } from '@/services/api/shared/poolService'
+import { formatDateTime } from '@/app/utils/dates'
 import { Fragment } from 'react'
 
 export const metadata: Metadata = {
@@ -31,17 +32,9 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   const schedules = await ScheduleService.findAll(scheduleIds.join(','))
   const pools = await PoolService.findAll()
 
-  const formatDateTimeWithTimezone = (dateTime: string) => {
-    const date = new Date(dateTime)
-    const options: Intl.DateTimeFormatOptions = {
-      month: 'long', // 'January'
-      day: 'numeric', // '27'
-      hour: 'numeric', // '12 PM'
-      minute: 'numeric', // '30'
-      timeZoneName: 'short',
-    }
-    return date.toLocaleString('en-US', options)
-  }
+  // This is a server component, so an unpinned timezone would render in the
+  // server's timezone (UTC) rather than the pool's.
+  const formatDateTimeWithTimezone = (dateTime: string) => formatDateTime(dateTime, { timeZoneName: 'shortGeneric' })
 
   return (
     <div className="space-y-6">

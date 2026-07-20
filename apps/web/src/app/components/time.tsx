@@ -1,27 +1,37 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { formatDateTime } from '@/app/utils/dates'
+import { formatDateTime, ORG_TIMEZONE } from '@/app/utils/dates'
 
-export default function Time({ dateTime }: { dateTime: string }) {
-  const [timeString, setTimeString] = useState<string | null>(null)
+/**
+ * Renders a lesson time in the pool's timezone.
+ *
+ * Pass alwaysShowTimeZone on views where the reader has to act on the time, so
+ * the 'MT' label is present for everyone rather than appearing only for viewers
+ * who happen to be travelling. A label that comes and goes teaches nobody what
+ * it means.
+ */
+export default function Time({
+  dateTime,
+  alwaysShowTimeZone = false,
+}: {
+  dateTime: string
+  alwaysShowTimeZone?: boolean
+}) {
+  // The viewer's timezone is only knowable after hydration, so this stays null
+  // for the server render and the first client render.
+  const [viewerTimeZone, setViewerTimeZone] = useState<string | null>(null)
 
   useEffect(() => {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' }).formatToParts(new Date())
-    const tzPart = parts.find(part => part.type === 'timeZoneName')
+    setViewerTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone)
+  }, [])
 
-    const options: Intl.DateTimeFormatOptions = {
-      month: 'long',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-    }
+  // Viewers outside the pool's timezone always get the label so they don't read
+  // the time as local.
+  const showTimeZone = alwaysShowTimeZone || (viewerTimeZone !== null && viewerTimeZone !== ORG_TIMEZONE)
 
-    if (tzPart && tzPart.value !== 'MDT') {
-      options.timeZoneName = 'short'
-    }
+  // 'shortGeneric' renders 'MT' rather than 'MDT'/'MST', which stays the same
+  // year round and avoids daylight-saving jargon.
+  const options: Intl.DateTimeFormatOptions = showTimeZone ? { timeZoneName: 'shortGeneric' } : {}
 
-    setTimeString(formatDateTime(dateTime))
-  }, [dateTime])
-
-  return <time dateTime={dateTime}>{timeString}</time>
+  return <time dateTime={dateTime}>{formatDateTime(dateTime, options)}</time>
 }
