@@ -99,8 +99,11 @@ export default function ScheduleBuilderForm() {
         const currentLessonForms: LessonFormData[] = currentLessons
           .map(lesson => ({
             id: lesson.id,
-            startTime: format(new Date(lesson.startDateTime), 'HH:mm'),
-            endTime: format(new Date(lesson.endDateTime), 'HH:mm'),
+            // Read back in the pool's timezone to match how handleSave writes these times.
+            // Plain format() renders in the admin's browser timezone, so an admin working
+            // from outside Mountain Time would see, copy, and re-save every slot shifted.
+            startTime: formatInTimeZone(new Date(lesson.startDateTime), ORG_TIMEZONE, 'HH:mm'),
+            endTime: formatInTimeZone(new Date(lesson.endDateTime), ORG_TIMEZONE, 'HH:mm'),
             lessonType: lesson.lessonType,
             classSize: lesson.classSize,
             isEditing: false,
@@ -323,12 +326,12 @@ export default function ScheduleBuilderForm() {
     // Filter out lessons that would conflict with existing times
     const newForms = previousWeekLessons
       .filter(lesson => {
-        const startTime = format(new Date(lesson.startDateTime), 'HH:mm')
+        const startTime = formatInTimeZone(new Date(lesson.startDateTime), ORG_TIMEZONE, 'HH:mm')
         return !existingStartTimes.has(startTime)
       })
       .map(lesson => ({
-        startTime: format(new Date(lesson.startDateTime), 'HH:mm'),
-        endTime: format(new Date(lesson.endDateTime), 'HH:mm'),
+        startTime: formatInTimeZone(new Date(lesson.startDateTime), ORG_TIMEZONE, 'HH:mm'),
+        endTime: formatInTimeZone(new Date(lesson.endDateTime), ORG_TIMEZONE, 'HH:mm'),
         lessonType: lesson.lessonType,
         classSize: lesson.classSize,
         isEditing: true,
@@ -349,12 +352,12 @@ export default function ScheduleBuilderForm() {
     // Filter out lessons that would conflict with existing times
     const newForms = previousDayLessons
       .filter(lesson => {
-        const startTime = format(new Date(lesson.startDateTime), 'HH:mm')
+        const startTime = formatInTimeZone(new Date(lesson.startDateTime), ORG_TIMEZONE, 'HH:mm')
         return !existingStartTimes.has(startTime)
       })
       .map(lesson => ({
-        startTime: format(new Date(lesson.startDateTime), 'HH:mm'),
-        endTime: format(new Date(lesson.endDateTime), 'HH:mm'),
+        startTime: formatInTimeZone(new Date(lesson.startDateTime), ORG_TIMEZONE, 'HH:mm'),
+        endTime: formatInTimeZone(new Date(lesson.endDateTime), ORG_TIMEZONE, 'HH:mm'),
         lessonType: lesson.lessonType,
         classSize: lesson.classSize,
         isEditing: true,

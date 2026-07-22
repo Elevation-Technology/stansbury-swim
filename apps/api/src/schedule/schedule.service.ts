@@ -292,9 +292,13 @@ export class ScheduleService {
     // Find schedules that are less than 48 hours from now and in the future.
     const fourtyEightHoursFromNow = addHours(new Date(), 48)
 
+    // $elemMatch, not a dotted path: 'registrations.reminderSentAt' traverses the array, so
+    // once ANY seat on the schedule has been reminded the whole schedule stops matching and
+    // every other seat on it is silently skipped forever. Late bookings and seats that were
+    // still HELD on the first pass were never reminded because of this.
     const schedules = await this.model.find({
       startDateTime: { $gte: new Date(), $lte: fourtyEightHoursFromNow },
-      'registrations.reminderSentAt': { $exists: false },
+      registrations: { $elemMatch: { reminderSentAt: { $exists: false } } },
     })
 
     for (const schedule of schedules) {

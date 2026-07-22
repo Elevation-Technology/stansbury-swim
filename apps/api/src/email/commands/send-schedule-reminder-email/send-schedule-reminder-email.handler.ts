@@ -44,8 +44,18 @@ export class SendScheduleReminderEmailHandler implements ICommandHandler<SendSch
     }
     this.logger.log(`Sending reminder for schedule ${command.scheduleId} and student ${command.studentId}`)
 
-    await this.scheduleService.updateRegistrationReminderSentAt(command.scheduleId, student.id)
+    // Send first, record second. Marking before the send meant any Resend failure was written
+    // down as a successful reminder and never retried, so the client silently got nothing.
+    const sent = await this.emailService.sendScheduleReminderEmail(user, student, schedule, command.corrected)
 
-    await this.emailService.sendScheduleReminderEmail(user, student, schedule, command.corrected)
+    if (!sent) {
+      this.logger.error(
+        `Reminder email failed for schedule ${command.scheduleId} and student ${command.studentId} ` +
+          `(${user.email}) — leaving unmarked so the next run retries`,
+      )
+      return
+    }
+
+    await this.scheduleService.updateRegistrationReminderSentAt(command.scheduleId, student.id)
   }
 }

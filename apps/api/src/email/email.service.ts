@@ -62,7 +62,7 @@ export class EmailService {
       <p style="margin:0;font-size:13px;line-height:1.6;color:#6b7280;">If you didn't request a password reset, you can safely ignore this email &mdash; your password won't be changed.</p>`,
     )
 
-    return this.sendMail({
+    await this.sendMail({
       to: email,
       from: FROM_ADDRESS,
       subject: 'Reset your password',
@@ -104,7 +104,7 @@ export class EmailService {
       ${this.renderSignoff()}`,
     )
 
-    return this.sendMail({
+    await this.sendMail({
       to: user.email,
       from: FROM_ADDRESS,
       subject: "You're off the waitlist — purchase your lessons",
@@ -135,7 +135,7 @@ export class EmailService {
       ${this.renderSignoff()}`,
     )
 
-    return this.sendMail({
+    await this.sendMail({
       to: user.email,
       from: FROM_ADDRESS,
       subject: 'Welcome to Stansbury Swim!',
@@ -156,7 +156,7 @@ export class EmailService {
       ${this.renderSignoff()}`,
     )
 
-    return this.sendMail({
+    await this.sendMail({
       to: user.email,
       from: FROM_ADDRESS,
       subject: 'Lesson Cancellation Confirmation',
@@ -186,7 +186,7 @@ export class EmailService {
       ${this.renderSignoff()}`,
     )
 
-    return this.sendMail({
+    await this.sendMail({
       to: user.email,
       from: FROM_ADDRESS,
       subject: 'Lesson Reservation Confirmation',
@@ -194,12 +194,13 @@ export class EmailService {
     })
   }
 
+  /** Returns whether Resend accepted the reminder, so the caller only records real sends. */
   public async sendScheduleReminderEmail(
     user: User,
     student: Student,
     schedule: Schedule,
     corrected: boolean = false,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const formattedDateTimeMdt = formatInTimeZone(schedule.startDateTime, ORG_TIMEZONE, 'MM/dd/yyyy hh:mm a')
     const pool = await this.poolService.findOne(schedule.poolId)
     const instructor = await this.instructorService.findOne(schedule.instructorId)
@@ -298,7 +299,7 @@ export class EmailService {
       ])}`,
     )
 
-    return this.sendMail({
+    await this.sendMail({
       to: ADMIN_ALERT_ADDRESS,
       from: FROM_ADDRESS,
       subject: classFull
@@ -308,7 +309,17 @@ export class EmailService {
     })
   }
 
-  private async sendMail(options: { to: string; from: string; subject: string; text?: string; html?: string }) {
+  /**
+   * Returns true only when Resend accepted the message. Callers that must not record a send
+   * they did not make (reminders) should branch on this instead of assuming success.
+   */
+  private async sendMail(options: {
+    to: string
+    from: string
+    subject: string
+    text?: string
+    html?: string
+  }): Promise<boolean> {
     const key = this.configService.get(ConfigEnum.ResendApiKey)
     const resend = new Resend(key)
 
@@ -323,12 +334,14 @@ export class EmailService {
 
       if (error) {
         this.logger.error(`Failed to send email to ${options.to}`, error)
-        return
+        return false
       }
 
       this.logger.log(`Email sent to ${options.to}`, { id: data?.id })
+      return true
     } catch (error: any) {
       this.logger.error(`Failed to send email to ${options.to}`, error?.stack)
+      return false
     }
   }
 
