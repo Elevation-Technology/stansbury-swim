@@ -195,7 +195,9 @@ export default function Schedule() {
   const fetchStudents = async () => {
     try {
       const students = await StudentService.findMyStudents()
-      setStudents(students)
+      // Removed students stay readable elsewhere so past bookings still render a name,
+      // but they must never be selectable for a new booking.
+      setStudents(students.filter(student => !student.deletedAt))
     } catch (err: any) {
       setError(err.message)
     } finally {

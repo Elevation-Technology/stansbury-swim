@@ -210,7 +210,14 @@ export class UserService {
   async update(userId: string, updateUserDto: UpdateUserDto): Promise<User> {
     const update: Partial<UserEntity> = {}
     if (updateUserDto.email) {
-      update.email = updateUserDto.email.trim()
+      // Sign-in looks the address up lowercased, so storing a different casing here
+      // locks the account out.
+      const email = updateUserDto.email.trim().toLowerCase()
+      const existingUser = await this.model.findOne({ email, _id: { $ne: new Types.ObjectId(userId) } })
+      if (existingUser) {
+        throw new ConflictException('Email already in use')
+      }
+      update.email = email
     }
     if (updateUserDto.firstName) {
       update.firstName = updateUserDto.firstName.trim()

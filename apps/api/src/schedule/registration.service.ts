@@ -68,6 +68,9 @@ export class RegistrationService {
     if (!student || student.userId.toString() !== createRegistrationDto.userId) {
       throw new NotFoundException('Student not found')
     }
+    if (student.deletedAt) {
+      throw new BadRequestException('Student has been removed')
+    }
 
     const creditBalances = await this.transactionService.readCreditBalances(createRegistrationDto.userId)
     const creditBalance = creditBalances.find(creditBalance =>
@@ -162,6 +165,9 @@ export class RegistrationService {
     const student = await this.studentService.findOne(createRegistrationDto.studentId)
     if (!student || student.userId.toString() !== createRegistrationDto.userId) {
       throw new NotFoundException('Student not found')
+    }
+    if (student.deletedAt) {
+      throw new BadRequestException('Student has been removed')
     }
 
     const now = new Date()

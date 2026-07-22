@@ -81,6 +81,15 @@ describe('RegistrationService hold/confirmHold', () => {
       )
       expect(model.findOneAndUpdate).not.toHaveBeenCalled()
     })
+
+    it('rejects a student that has been removed', async () => {
+      studentService.findOne.mockResolvedValue({ id: STUDENT_ID, userId: USER_ID, deletedAt: new Date() })
+
+      await expect(service.hold(SCHEDULE_ID, { userId: USER_ID, studentId: STUDENT_ID })).rejects.toThrow(
+        'Student has been removed',
+      )
+      expect(model.findOneAndUpdate).not.toHaveBeenCalled()
+    })
   })
 
   describe('confirmHold', () => {
