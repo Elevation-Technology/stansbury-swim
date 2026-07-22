@@ -8,6 +8,12 @@ export class UserResponseDto {
   @ApiProperty()
   email: string
 
+  @ApiProperty({ required: false })
+  emailVerified?: boolean
+
+  @ApiProperty({ required: false })
+  pendingEmail?: string
+
   @ApiProperty()
   firstName: string
 

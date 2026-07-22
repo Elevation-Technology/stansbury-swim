@@ -5,6 +5,8 @@
 export type UserResponseDto = {
     id: string;
     email: string;
+    emailVerified?: boolean;
+    pendingEmail?: string;
     firstName: string;
     lastName: string;
     address1: string;

@@ -5,6 +5,8 @@ export class User {
   firstName: string
   lastName: string
   email: string
+  emailVerified: boolean
+  pendingEmail: string | null
   address1: string
   address2: string
   city: string

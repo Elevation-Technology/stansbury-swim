@@ -26,4 +26,12 @@ export class AuthService extends BaseService {
   static async resetPassword(token: string, password: string) {
     return AuthenticationService.authenticationControllerResetPassword({ token, password })
   }
+
+  static async verifyEmail(token: string) {
+    return AuthenticationService.authenticationControllerVerifyEmail({ token })
+  }
+
+  static async resendVerification() {
+    return AuthenticationService.authenticationControllerResendVerification()
+  }
 }

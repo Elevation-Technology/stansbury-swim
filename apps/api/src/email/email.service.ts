@@ -70,6 +70,45 @@ export class EmailService {
     })
   }
 
+  /**
+   * Sends the confirm-your-address link. `address` is where the link goes, which during a
+   * profile email change is the staged address rather than the live one, so an address that
+   * was mistyped simply never receives anything.
+   */
+  public async sendVerifyEmailLink(user: User, address: string): Promise<void> {
+    const secret = this.configService.get(ConfigEnum.JwtVerificationTokenSecret)
+    const expiresIn = this.configService.get(ConfigEnum.JwtVerificationTokenExpirationTime)
+
+    const token = this.jwtService.sign({ email: address }, { secret, expiresIn })
+
+    await this.userService.updateEmailVerificationToken(user.id, token)
+
+    const url = `${SITE_URL}/verify-email?token=${token}`
+    const isChange = address !== user.email
+
+    const html = this.renderEmailLayout(
+      'Confirm your email address',
+      `${this.renderHeading('Confirm your email address')}
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">Hi ${user.firstName},</p>
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">${
+        isChange
+          ? 'You asked to change the email address on your Stansbury Swim account to this one. Click below to confirm it. Until you do, we will keep sending to your old address.'
+          : 'Please confirm this is the right address for your Stansbury Swim account so your lesson reminders and confirmations reach you.'
+      }</p>
+      ${this.renderButton(url, 'Confirm email address')}
+      <p style="margin:24px 0 8px 0;font-size:13px;line-height:1.6;color:#6b7280;">If the button doesn't work, copy and paste this link into your browser:</p>
+      <p style="margin:0 0 24px 0;font-size:13px;line-height:1.6;word-break:break-all;"><a href="${url}" style="color:#428BCA;text-decoration:underline;">${url}</a></p>
+      <p style="margin:0;font-size:13px;line-height:1.6;color:#6b7280;">If you weren't expecting this, you can ignore it and nothing will change.</p>`,
+    )
+
+    await this.sendMail({
+      to: address,
+      from: FROM_ADDRESS,
+      subject: 'Confirm your email address',
+      html,
+    })
+  }
+
   public async decodeConfirmationToken(token: string): Promise<string> {
     try {
       const payload = await this.jwtService.verify(token, {

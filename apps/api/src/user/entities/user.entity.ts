@@ -41,6 +41,19 @@ export class UserEntity {
   @Prop({ required: false })
   resetToken: string
 
+  // Absent means verified. Accounts that predate email verification are grandfathered in
+  // rather than backfilled, so only sign-ups from here on start out unverified.
+  @Prop({ required: false })
+  emailVerified?: boolean
+
+  // An address the user has asked to change to but has not confirmed yet. The live `email`
+  // does not move until they click the link, so a typo can never strand the account.
+  @Prop({ required: false })
+  pendingEmail?: string
+
+  @Prop({ required: false })
+  emailVerificationToken?: string
+
   @Prop({ default: 0 })
   failedLoginAttempts: number
 

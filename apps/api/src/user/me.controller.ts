@@ -17,7 +17,12 @@ export class MeController {
 
   @Patch()
   update(@ActiveUser() user: ActiveUserData, @Body() updateUserDto: UpdateUserDto) {
-    return this.userService.update(user.sub, updateUserDto)
+    // Self-service, so a new address has to be confirmed before it replaces the live one.
+    // An admin driving this session through impersonation is exempt: that is the repair
+    // path for an address that is already wrong, and no confirmation could ever arrive at it.
+    return this.userService.update(user.sub, updateUserDto, {
+      requireEmailConfirmation: !user.impersonatorId,
+    })
   }
 
   @Post('waiver')

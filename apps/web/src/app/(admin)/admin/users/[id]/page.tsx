@@ -9,6 +9,7 @@ import { CreateTransactionForm } from './create-transaction-form'
 import { Metadata } from 'next'
 import { Divider } from '@/app/components/divider'
 import { RolesSection } from './roles-section'
+import { EmailSection } from './email-section'
 import { UserService } from '@/services/api/shared/userService'
 import { StudentService } from '@/services/api/shared/studentService'
 import { TransactionsService } from '@/services/api/shared/transactionsService'
@@ -55,7 +56,11 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         </DescriptionDetails>
 
         <DescriptionTerm>Email</DescriptionTerm>
-        <DescriptionDetails>{user.email}</DescriptionDetails>
+        <DescriptionDetails>
+          {user.email}
+          {user.emailVerified === false && <span className="ml-2 text-amber-700">(unconfirmed)</span>}
+          {user.pendingEmail && <span className="ml-2 text-amber-700">(change to {user.pendingEmail} pending)</span>}
+        </DescriptionDetails>
 
         <DescriptionTerm>Phone</DescriptionTerm>
         <DescriptionDetails>{user.phone}</DescriptionDetails>
@@ -148,6 +153,9 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
       <Divider />
       <h2 className="text-2xl font-bold">Roles</h2>
       <RolesSection user={user} instructors={instructors} />
+      <Divider />
+      <h2 className="text-2xl font-bold">Email</h2>
+      <EmailSection user={user} />
     </div>
   )
 }

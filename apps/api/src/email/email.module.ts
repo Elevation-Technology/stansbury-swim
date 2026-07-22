@@ -19,9 +19,11 @@ import { InstructorModule } from 'instructor/instructor.module'
 import { SendScheduleReminderEmailHandler } from './commands/send-schedule-reminder-email/send-schedule-reminder-email.handler'
 import { SendWaitlistAllowedEmailHandler } from './commands/send-waitlist-allowed-email/send-waitlist-allowed-email.handler'
 import { WaitlistSaga } from './waitlist.saga'
+import { SendEmailVerificationHandler } from './commands/send-email-verification/send-email-verification.handler'
 const COMMAND_HANDLERS = [
   SendCancellationEmailHandler,
   SendWelcomeEmailHandler,
+  SendEmailVerificationHandler,
   SendReservationEmailHandler,
   SendReservationFailedEmailHandler,
   SendScheduleReminderEmailHandler,

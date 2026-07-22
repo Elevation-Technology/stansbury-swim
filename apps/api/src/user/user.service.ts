@@ -9,12 +9,16 @@ import { SignUpDto } from '../iam/authentication/dto/sign-up.dto'
 import { UserForAuth } from './user-for-auth'
 import { EventBus } from '@nestjs/cqrs'
 import { UserRegisterEvent } from './events/user-register.event'
+import { EmailVerificationRequestedEvent } from './events/email-verification-requested.event'
 import { Role } from '@lesson-scheduler/shared'
 import { TransactionService } from 'payment/transaction.service'
 const mapper = (entity: UserEntity): User => {
   return {
     id: entity._id.toString(),
     email: entity.email,
+    // A missing flag means the account predates verification, so treat it as verified.
+    emailVerified: entity.emailVerified !== false,
+    pendingEmail: entity.pendingEmail || null,
     firstName: entity.firstName,
     lastName: entity.lastName,
     address1: entity.address1 || '',
@@ -81,6 +85,7 @@ export class UserService {
       salt,
       failedLoginAttempts: 0,
       lastFailedLogin: null,
+      emailVerified: false,
     })
     const entity = await this.model.findById(_id)
     if (!entity) {
@@ -88,6 +93,7 @@ export class UserService {
     }
     const user = mapper(entity)
     await this.eventBus.publish(new UserRegisterEvent(user))
+    await this.eventBus.publish(new EmailVerificationRequestedEvent(user, user.email))
     return user
   }
 
@@ -207,8 +213,14 @@ export class UserService {
     }
   }
 
-  async update(userId: string, updateUserDto: UpdateUserDto): Promise<User> {
+  async update(
+    userId: string,
+    updateUserDto: UpdateUserDto,
+    options: { requireEmailConfirmation?: boolean } = {},
+  ): Promise<User> {
     const update: Partial<UserEntity> = {}
+    const unset: Record<string, ''> = {}
+    let addressToVerify: string | null = null
     if (updateUserDto.email) {
       // Sign-in looks the address up lowercased, so storing a different casing here
       // locks the account out.
@@ -217,7 +229,25 @@ export class UserService {
       if (existingUser) {
         throw new ConflictException('Email already in use')
       }
-      update.email = email
+      const current = await this.model.findById(new Types.ObjectId(userId))
+      if (!current) {
+        throw new NotFoundException('User not found')
+      }
+      if (email !== current.email) {
+        if (options.requireEmailConfirmation) {
+          // Stage the address instead of moving the live one. A mistyped address never
+          // receives its link, so the account keeps working on the address that does.
+          update.pendingEmail = email
+          addressToVerify = email
+        } else {
+          // Admin repair path. Someone whose address is already wrong cannot receive a
+          // confirmation at it, so this applies immediately.
+          update.email = email
+          update.emailVerified = true
+          unset['pendingEmail'] = ''
+          unset['emailVerificationToken'] = ''
+        }
+      }
     }
     if (updateUserDto.firstName) {
       update.firstName = updateUserDto.firstName.trim()
@@ -261,17 +291,61 @@ export class UserService {
         )
       }
     }
-    await this.model.updateOne(
-      { _id: new Types.ObjectId(userId) },
-      {
-        $set: update,
-      },
-    )
+    const write: Record<string, unknown> = { $set: update }
+    if (Object.keys(unset).length > 0) {
+      write['$unset'] = unset
+    }
+    await this.model.updateOne({ _id: new Types.ObjectId(userId) }, write)
     const entity = await this.model.findById(new Types.ObjectId(userId))
     if (!entity) {
       throw new Error('User not found')
     }
-    return mapper(entity)
+    const user = mapper(entity)
+    if (addressToVerify) {
+      await this.eventBus.publish(new EmailVerificationRequestedEvent(user, addressToVerify))
+    }
+    return user
+  }
+
+  /** Stores the signed link token so a confirmation can only be redeemed once. */
+  async updateEmailVerificationToken(userId: string, token: string): Promise<void> {
+    await this.model.updateOne({ _id: new Types.ObjectId(userId) }, { $set: { emailVerificationToken: token } })
+  }
+
+  /**
+   * Redeems a confirmation link. Promotes a staged address to the live one when the user was
+   * confirming a change, and marks the account verified either way.
+   */
+  async confirmEmailVerification(token: string): Promise<User> {
+    const entity = await this.model.findOne({ emailVerificationToken: token })
+    if (!entity) {
+      throw new NotFoundException('Invalid or expired verification token')
+    }
+
+    const update: Partial<UserEntity> = { emailVerified: true }
+    if (entity.pendingEmail) {
+      // Re-check at redemption time. The address could have been claimed by someone else
+      // between the request and the click.
+      const existingUser = await this.model.findOne({
+        email: entity.pendingEmail,
+        _id: { $ne: entity._id },
+      })
+      if (existingUser) {
+        throw new ConflictException('Email already in use')
+      }
+      update.email = entity.pendingEmail
+    }
+
+    await this.model.updateOne(
+      { _id: entity._id },
+      { $set: update, $unset: { pendingEmail: '', emailVerificationToken: '' } },
+    )
+
+    const updated = await this.model.findById(entity._id)
+    if (!updated) {
+      throw new NotFoundException('User not found')
+    }
+    return mapper(updated)
   }
 
   async remove(id: string): Promise<void> {
@@ -294,7 +368,11 @@ export class UserService {
       {
         $set: {
           googleId,
+          // Signing in through Google proves the address, so linking clears any pending
+          // verification on an older password account.
+          emailVerified: true,
         },
+        $unset: { pendingEmail: '', emailVerificationToken: '' },
       },
     )
     const entity = await this.model.findOne({ email })
@@ -318,6 +396,8 @@ export class UserService {
       googleId,
       firstName: given_name,
       lastName: family_name,
+      // Google already proved the address belongs to them, so there is nothing to confirm.
+      emailVerified: true,
     })
     const entity = await this.model.findById(_id)
     if (!entity) {

@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { UserProvider } from '../contexts/user-context'
 import { ImpersonationBanner } from '../components/impersonation-banner'
+import { EmailVerificationBanner } from '../components/email-verification-banner'
 
 export const metadata = {
   title: 'Stansbury Swim',
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </head>
           <body className="h-full">
             <ImpersonationBanner />
+            <EmailVerificationBanner />
             <div className="bg-white flex min-h-screen flex-col">
               <main className="flex-grow">{children}</main>
               <Footer />

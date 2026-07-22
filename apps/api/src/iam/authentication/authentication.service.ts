@@ -176,6 +176,26 @@ export class AuthenticationService {
     }
   }
 
+  /**
+   * Redeems a verification link. The token is decoded first so an expired link fails with a
+   * clear reason, then matched against the copy stored on the account so it burns after one use.
+   */
+  async verifyEmail(token: string): Promise<User> {
+    await this.emailService.decodeConfirmationToken(token)
+    return this.userService.confirmEmailVerification(token)
+  }
+
+  async resendVerification(userId: string): Promise<void> {
+    const user = await this.userService.findOne(userId)
+    if (!user) {
+      throw new NotFoundException('User not found')
+    }
+    if (user.emailVerified && !user.pendingEmail) {
+      throw new BadRequestException('Email address is already confirmed')
+    }
+    await this.emailService.sendVerifyEmailLink(user, user.pendingEmail ?? user.email)
+  }
+
   async impersonate(
     userId: string,
     adminUser: ActiveUserData,

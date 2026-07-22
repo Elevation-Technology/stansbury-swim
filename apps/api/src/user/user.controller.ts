@@ -136,6 +136,9 @@ export class UserController {
     if (user.role !== Role.Admin && (updateUserDto.instructorId || updateUserDto.role)) {
       throw new ForbiddenException('You are not authorized to update this user')
     }
+    // This controller is admin-only via @Roles(Role.Admin) on the class, so an address set
+    // here applies immediately rather than being staged. That is deliberate: it is the repair
+    // path for an account whose address is already wrong and so cannot receive a confirmation.
     const updatedUser = await this.userService.update(id, updateUserDto)
     return updatedUser as UserResponseDto
   }

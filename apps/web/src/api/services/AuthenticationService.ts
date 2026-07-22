@@ -130,4 +130,31 @@ export class AuthenticationService {
             mediaType: 'application/json',
         });
     }
+    /**
+     * Confirm an email address from a verification link
+     * @param requestBody
+     * @returns any Email address confirmed
+     * @throws ApiError
+     */
+    public static authenticationControllerVerifyEmail(
+        requestBody: { token: string },
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/auth/verify-email',
+            body: requestBody,
+            mediaType: 'application/json',
+        });
+    }
+    /**
+     * Resend the verification link for the signed-in account
+     * @returns any Verification email sent
+     * @throws ApiError
+     */
+    public static authenticationControllerResendVerification(): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/auth/resend-verification',
+        });
+    }
 }

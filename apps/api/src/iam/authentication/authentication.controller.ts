@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config'
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger'
 import { ForgotPasswordDto } from './dto/forgot-password.dto'
 import { ResetPasswordDto } from './dto/reset-password.dto'
+import { VerifyEmailDto } from './dto/verify-email.dto'
 import { Roles } from './decorators/roles.decorator'
 import { Role } from '@lesson-scheduler/shared'
 import { ImpersonateDto } from './dto/impersonate.dto'
@@ -138,5 +139,25 @@ export class AuthenticationController {
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
     await this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.password)
     return { message: 'Password reset successfully' }
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Confirm an email address from a verification link' })
+  @ApiBody({ type: VerifyEmailDto })
+  @ApiResponse({ status: 200, description: 'Email address confirmed' })
+  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto): Promise<{ email: string }> {
+    const user = await this.authService.verifyEmail(verifyEmailDto.token)
+    return { email: user.email }
+  }
+
+  @Post('resend-verification')
+  @Auth(AuthType.Bearer)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend the verification link for the signed-in account' })
+  @ApiResponse({ status: 200, description: 'Verification email sent' })
+  async resendVerification(@ActiveUser() activeUser: ActiveUserData): Promise<{ success: boolean }> {
+    await this.authService.resendVerification(activeUser.sub)
+    return { success: true }
   }
 }
